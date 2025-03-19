@@ -108,6 +108,13 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
     try {
       console.log('Processing files:', acceptedFiles);
       
+      if (!acceptedFiles || acceptedFiles.length === 0) {
+        console.error('No files were provided for processing');
+        alert('No files were selected. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+      
       // Check if we have folder uploads
       const hasFolderUploads = acceptedFiles.some(file => file.webkitRelativePath);
       
@@ -143,18 +150,24 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
         
         // Group files by folder
         for (const file of acceptedFiles) {
-          if (file.name.endsWith('.json')) {
-            const folderName = extractFolderName(file);
-            
-            if (!folderFiles.has(folderName)) {
-              folderFiles.set(folderName, []);
+          try {
+            if (file.name.endsWith('.json')) {
+              const folderName = extractFolderName(file);
+              
+              if (!folderFiles.has(folderName)) {
+                folderFiles.set(folderName, []);
+              }
+              
+              folderFiles.get(folderName)?.push(file);
+              console.log(`Added file ${file.name} to folder ${folderName}`);
+            } else if (file.name.endsWith('.zip')) {
+              // Process ZIP file separately
+              await processZipFile(file, processedFiles);
+            } else {
+              console.warn(`Skipping file with unsupported format: ${file.name}`);
             }
-            
-            folderFiles.get(folderName)?.push(file);
-            console.log(`Added file ${file.name} to folder ${folderName}`);
-          } else if (file.name.endsWith('.zip')) {
-            // Process ZIP file separately
-            await processZipFile(file, processedFiles);
+          } catch (error) {
+            console.error(`Error processing file ${file.name}:`, error);
           }
         }
         
@@ -298,26 +311,61 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      console.log('Files dropped:', acceptedFiles);
-      await processFiles(acceptedFiles);
+      try {
+        console.log('Files dropped:', acceptedFiles);
+        if (acceptedFiles && acceptedFiles.length > 0) {
+          await processFiles(acceptedFiles);
+        } else {
+          console.warn('No files were dropped or accepted');
+          alert('No valid files were detected. Please try again with JSON or ZIP files.');
+        }
+      } catch (error) {
+        console.error('Error handling dropped files:', error);
+        alert('There was an error processing the dropped files. Please try again.');
+      }
     },
     [processFiles]
   );
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
     accept: {
       'application/json': ['.json'],
       'application/zip': ['.zip'],
       'application/x-zip-compressed': ['.zip'],
     },
+    maxSize: 50 * 1024 * 1024, // 50MB max file size
+    onDropRejected: (fileRejections) => {
+      console.error('Files rejected:', fileRejections);
+      
+      // Check for specific rejection reasons
+      if (fileRejections.some(f => f.errors.some(e => e.code === 'file-too-large'))) {
+        alert('Some files were too large. Maximum file size is 50MB.');
+      } else if (fileRejections.some(f => f.errors.some(e => e.code === 'file-invalid-type'))) {
+        alert('Some files had invalid types. Only JSON and ZIP files are accepted.');
+      } else {
+        alert('Some files were rejected. Please check file types and sizes.');
+      }
+    },
+    onError: (error) => {
+      console.error('Dropzone error:', error);
+      alert('There was an error with the file upload. Please try again.');
+    }
   });
 
   const handleFolderUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      console.log('Folder upload files:', Array.from(files));
-      await processFiles(Array.from(files));
+    try {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        console.log('Folder upload files:', Array.from(files));
+        await processFiles(Array.from(files));
+      } else {
+        console.warn('No files selected in folder upload');
+        alert('No files were found in the selected folder. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error handling folder upload:', error);
+      alert('There was an error processing the folder. Please try again.');
     }
   }, [processFiles]);
 

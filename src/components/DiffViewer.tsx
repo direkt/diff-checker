@@ -139,6 +139,15 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
         return data.vdsDetails.map(vds => `-- VDS path: ${vds.path}\n${vds.sql}`).join('\n\n') || '';
       case 'planPhases':
         return data.planPhases || '';
+      case 'reflections':
+        const chosenReflections = data.reflections?.chosen?.map(r => `[Chosen] ${r}`) || [];
+        const consideredReflections = data.reflections?.considered?.map(r => `[Considered] ${r}`) || [];
+        
+        if (chosenReflections.length === 0 && consideredReflections.length === 0) {
+          return 'No reflection data available';
+        }
+        
+        return [...chosenReflections, ...consideredReflections].join('\n') || '';
       default:
         return '';
     }
