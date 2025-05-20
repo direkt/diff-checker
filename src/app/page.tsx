@@ -317,7 +317,7 @@ export default function Home() {
             <option value="pdsDatasetPaths">PDS Dataset Paths</option>
             <option value="vdsDatasetPaths">VDS Dataset Paths</option>
             <option value="vdsDetails">VDS Details with SQL</option>
-            <option value="planPhases">Plan Phases</option>
+            <option value="planOperators">Plan Operators</option>
             <option value="reflections">Reflections</option>
             <option value="dataScans">Data Scans</option>
           </select>

@@ -2,7 +2,7 @@ import React from 'react';
 import ReactFlow, { MiniMap, Controls, Background, Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-interface PhaseGraphProps {
+interface OperatorGraphProps {
   planJson: string | object;
   title?: string;
 }
@@ -28,20 +28,20 @@ function extractNodesAndEdges(planJson: unknown): { nodes: Node[]; edges: Edge[]
   const edges: Edge[] = [];
   const yStep = 120;
   let i = 0;
-  for (const phaseId in plan as Record<string, unknown>) {
-    const phase = (plan as Record<string, unknown>)[phaseId] as Record<string, unknown>;
+  for (const operatorId in plan as Record<string, unknown>) {
+    const operator = (plan as Record<string, unknown>)[operatorId] as Record<string, unknown>;
     nodes.push({
-      id: phaseId.replace(/"/g, ''),
-      data: { label: `${phaseId.replace(/"/g, '')}: ${typeof phase.op === 'string' ? phase.op.split('.')?.pop() || '' : ''}${phase.phaseName ? ` (${phase.phaseName})` : ''}` },
+      id: operatorId.replace(/"/g, ''),
+      data: { label: `${operatorId.replace(/"/g, '')}: ${typeof operator.op === 'string' ? operator.op.split('.')?.pop() || '' : ''}${operator.operatorName ? ` (${operator.operatorName})` : ''}` },
       position: { x: 0, y: i * yStep },
       style: { minWidth: 180, padding: 8, borderRadius: 8, background: '#f0f4ff', border: '1px solid #b6c6e3' },
     });
-    if (Array.isArray(phase.inputs)) {
-      for (const input of phase.inputs as string[]) {
+    if (Array.isArray(operator.inputs)) {
+      for (const input of operator.inputs as string[]) {
         edges.push({
-          id: `${input}->${phaseId.replace(/"/g, '')}`,
+          id: `${input}->${operatorId.replace(/"/g, '')}`,
           source: input.replace(/"/g, ''),
-          target: phaseId.replace(/"/g, ''),
+          target: operatorId.replace(/"/g, ''),
           animated: true,
           style: { stroke: '#4f8cff' },
         });
@@ -52,7 +52,7 @@ function extractNodesAndEdges(planJson: unknown): { nodes: Node[]; edges: Edge[]
   return { nodes, edges };
 }
 
-export const PhaseGraph: React.FC<PhaseGraphProps> = ({ planJson }) => {
+export const OperatorGraph: React.FC<OperatorGraphProps> = ({ planJson }) => {
   const { nodes, edges } = React.useMemo(() => extractNodesAndEdges(planJson), [planJson]);
 
   if (nodes.length === 0) {

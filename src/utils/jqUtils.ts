@@ -14,7 +14,7 @@ export interface ProfileData {
   pdsDatasetPaths: string[];
   vdsDatasetPaths: string[];
   vdsDetails: { path: string; sql: string }[];
-  planPhases: string;
+  planOperators: string;
   /**
    * Reflection data for the query.
    * This can come from three sources:
@@ -35,6 +35,10 @@ export interface ProfileData {
    */
   dataScans: DataScan[];
   jsonPlan?: any;
+  /**
+   * The snapshot ID extracted from the plan string, if present.
+   */
+  snapshotId?: string;
 }
 
 interface DatasetProfile {
@@ -43,8 +47,8 @@ interface DatasetProfile {
   sql?: string;
 }
 
-interface PlanPhase {
-  phaseName: string;
+interface PlanOperator {
+  operatorName: string;
   plan: string;
 }
 
@@ -56,13 +60,14 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     pdsDatasetPaths: [],
     vdsDatasetPaths: [],
     vdsDetails: [],
-    planPhases: '',
+    planOperators: '',
     reflections: {
       chosen: [],
       considered: []
     },
     dataScans: [],
-    jsonPlan: undefined
+    jsonPlan: undefined,
+    snapshotId: undefined
   };
 
   try {
@@ -91,6 +96,15 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       } catch (error) {
         console.error('Error cleaning plan:', error);
         // Keep original plan if there's an error
+      }
+    }
+    
+    // Extract snapshotId from plan using regex
+    let snapshotId: string | undefined = undefined;
+    if (plan) {
+      const match = plan.match(/snapshot=\[([0-9]+)\]/);
+      if (match && match[1]) {
+        snapshotId = match[1];
       }
     }
     
@@ -128,17 +142,17 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       }
     }
     
-    // Extract plan phases
-    let planPhases = '';
-    if (parsedJson.planPhases && Array.isArray(parsedJson.planPhases)) {
+    // Extract plan operators
+    let planOperators = '';
+    if (parsedJson.planPhases && Array.isArray(parsedJson.planPhases)) { // Keep planPhases since it's the API field name
       try {
-        const convertToRelPhase = parsedJson.planPhases.find(
-          (phase: PlanPhase) => phase.phaseName === "Convert To Rel"
+        const convertToRelOperator = parsedJson.planPhases.find(
+          (operator: PlanOperator) => operator.operatorName === "Convert To Rel"
         );
         
-        if (convertToRelPhase && convertToRelPhase.plan) {
-          // Process the plan phases to exactly match the jq/sed command sequence
-          planPhases = convertToRelPhase.plan
+        if (convertToRelOperator && convertToRelOperator.plan) {
+          // Process the plan operators to exactly match the jq/sed command sequence
+          planOperators = convertToRelOperator.plan
             .replace(/\\n/g, '\n')
             .split('\n')
             .filter((line: string) => /ScanCrel|ExpansionNode/.test(line))
@@ -165,7 +179,7 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
             .join('\n');
         }
       } catch (error) {
-        console.error('Error processing plan phases:', error);
+        console.error('Error processing plan operators:', error);
       }
     }
     
@@ -284,7 +298,7 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       // Look for data file scans
       const dataFileScanMatches = plan.match(/Table Function Type=\[DATA_FILE_SCAN\].*?table=(\S+)/g);
       if (dataFileScanMatches) {
-        dataFileScanMatches.forEach(match => {
+        dataFileScanMatches.forEach((match: string) => {
           // Extract table name from the match
           const tableMatch = match.match(/table=(\S+)/);
           const tableName = tableMatch ? tableMatch[1] : 'Unknown';
@@ -303,7 +317,7 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       // Look for TableFunction with filters
       const tableFilterMatches = plan.match(/TableFunction\(filters=\[\[.*?\]\].*?table=(\S+)/g);
       if (tableFilterMatches) {
-        tableFilterMatches.forEach(match => {
+        tableFilterMatches.forEach((match: string) => {
           // Extract table name
           const tableMatch = match.match(/table=(\S+)/);
           const tableName = tableMatch ? tableMatch[1].replace(/,/g, '') : 'Unknown';
@@ -336,7 +350,7 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       // Also look for any other TableFunction patterns that might have different formats
       const moreFunctionMatches = plan.match(/TableFunction\(.*?columns=/g);
       if (moreFunctionMatches) {
-        moreFunctionMatches.forEach(match => {
+        moreFunctionMatches.forEach((match: string) => {
           // Try to extract a table name if possible
           const tableMatch = match.match(/table=(\S+)/);
           if (!tableMatch) return; // Skip if no table name found
@@ -368,10 +382,11 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       pdsDatasetPaths,
       vdsDatasetPaths,
       vdsDetails,
-      planPhases,
+      planOperators,
       reflections,
       dataScans,
-      jsonPlan
+      jsonPlan,
+      snapshotId
     };
   } catch (error) {
     console.error('Error extracting profile data:', error);
