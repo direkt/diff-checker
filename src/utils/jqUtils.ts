@@ -34,6 +34,7 @@ export interface ProfileData {
    * This includes table names, scan types, and metrics.
    */
   dataScans: DataScan[];
+  jsonPlan?: any;
 }
 
 interface DatasetProfile {
@@ -60,7 +61,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       chosen: [],
       considered: []
     },
-    dataScans: []
+    dataScans: [],
+    jsonPlan: undefined
   };
 
   try {
@@ -357,6 +359,9 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       }
     }
     
+    // Extract jsonPlan if present
+    const jsonPlan = parsedJson.jsonPlan ? parsedJson.jsonPlan : undefined;
+    
     return {
       query,
       plan,
@@ -365,7 +370,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       vdsDetails,
       planPhases,
       reflections,
-      dataScans
+      dataScans,
+      jsonPlan
     };
   } catch (error) {
     console.error('Error extracting profile data:', error);
