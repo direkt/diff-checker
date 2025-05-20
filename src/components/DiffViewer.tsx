@@ -4,6 +4,7 @@ import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql';
 import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ProfileData } from '@/utils/jqUtils';
+import DataScanComparison from './DataScanComparison';
 
 SyntaxHighlighter.registerLanguage('sql', sql);
 
@@ -148,10 +149,17 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
         }
         
         return [...chosenReflections, ...consideredReflections].join('\n') || '';
+      case 'dataScans':
+        return '';
       default:
         return '';
     }
   };
+
+  // Special case for data scans
+  if (selectedSection === 'dataScans') {
+    return <DataScanComparison leftData={leftData} rightData={rightData} />;
+  }
 
   // For non-plan sections, use the standard diff viewer
   if (selectedSection !== 'plan' || !planPhases) {
@@ -166,7 +174,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
           splitView={true}
           useDarkTheme={false}
           showDiffOnly={false}
-          disableWordDiff={false}
+          disableWordDiff={true}
           leftTitle="Source"
           rightTitle="Target"
           styles={customStyles}
@@ -201,7 +209,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               splitView={true}
               useDarkTheme={false}
               showDiffOnly={false}
-              disableWordDiff={false}
+              disableWordDiff={true}
               leftTitle="Source"
               rightTitle="Target"
               compareMethod={DiffMethod.WORDS}

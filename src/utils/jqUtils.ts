@@ -1,3 +1,13 @@
+export interface DataScan {
+  table_name: string;
+  scan_type: string;
+  filters: string[];
+  timestamp: string;
+  rows_scanned: number;
+  duration_ms: number;
+  table_function_filter?: string;
+}
+
 export interface ProfileData {
   query: string;
   plan: string;
@@ -19,6 +29,11 @@ export interface ProfileData {
     chosen: string[];
     considered: string[];
   };
+  /**
+   * Data scans information extracted from the profile.
+   * This includes table names, scan types, and metrics.
+   */
+  dataScans: DataScan[];
 }
 
 interface DatasetProfile {
@@ -44,7 +59,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     reflections: {
       chosen: [],
       considered: []
-    }
+    },
+    dataScans: []
   };
 
   try {
@@ -222,6 +238,125 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       console.error('Error extracting reflection data:', error);
     }
     
+    // Extract data scans
+    const dataScans: DataScan[] = [];
+    
+    // Try to extract from various possible locations in the JSON
+    if (parsedJson.dataScans && Array.isArray(parsedJson.dataScans)) {
+      dataScans.push(...parsedJson.dataScans);
+    } else if (parsedJson.tableScanProfiles && Array.isArray(parsedJson.tableScanProfiles)) {
+      // Alternative format
+      parsedJson.tableScanProfiles.forEach((scan: any) => {
+        dataScans.push({
+          table_name: scan.tableName || scan.table_name || 'Unknown',
+          scan_type: scan.scanType || scan.scan_type || 'Unknown',
+          filters: scan.filters || [],
+          timestamp: scan.timestamp || '',
+          rows_scanned: scan.rowsScanned || scan.rows_scanned || 0,
+          duration_ms: scan.durationMs || scan.duration_ms || 0
+        });
+      });
+    }
+    
+    // Also look for scans in execution events, which might contain table scan info
+    if (parsedJson.executionEvents && Array.isArray(parsedJson.executionEvents)) {
+      parsedJson.executionEvents.forEach((event: any) => {
+        if (event.type === 'TABLE_SCAN' || event.eventType === 'TABLE_SCAN' || 
+            (event.type === 'TABLE_FUNCTION' || event.eventType === 'TABLE_FUNCTION')) {
+          dataScans.push({
+            table_name: event.tableName || event.table || 'Unknown',
+            scan_type: event.scanType || event.scan_type || 
+                      (event.attributes && event.attributes.includes('Type=[DATA_FILE_SCAN]') ? 'DATA_FILE_SCAN' : 
+                       event.type === 'TABLE_FUNCTION' ? 'TABLE_FUNCTION' : 'Unknown'),
+            filters: event.filters || [],
+            timestamp: event.timestamp || '',
+            rows_scanned: event.rowCount || event.rowsScanned || 0,
+            duration_ms: event.durationMs || event.duration_ms || 0
+          });
+        }
+      });
+    }
+    
+    // Extract table functions and data file scans from the plan text
+    if (plan) {
+      // Look for data file scans
+      const dataFileScanMatches = plan.match(/Table Function Type=\[DATA_FILE_SCAN\].*?table=(\S+)/g);
+      if (dataFileScanMatches) {
+        dataFileScanMatches.forEach(match => {
+          // Extract table name from the match
+          const tableMatch = match.match(/table=(\S+)/);
+          const tableName = tableMatch ? tableMatch[1] : 'Unknown';
+          
+          dataScans.push({
+            table_name: tableName,
+            scan_type: 'DATA_FILE_SCAN',
+            filters: [],
+            timestamp: '',
+            rows_scanned: 0,
+            duration_ms: 0
+          });
+        });
+      }
+      
+      // Look for TableFunction with filters
+      const tableFilterMatches = plan.match(/TableFunction\(filters=\[\[.*?\]\].*?table=(\S+)/g);
+      if (tableFilterMatches) {
+        tableFilterMatches.forEach(match => {
+          // Extract table name
+          const tableMatch = match.match(/table=(\S+)/);
+          const tableName = tableMatch ? tableMatch[1].replace(/,/g, '') : 'Unknown';
+          
+          // Extract filter expression
+          const filterMatch = match.match(/filters=\[\[(.*?)\]\]/);
+          const filterExpression = filterMatch ? filterMatch[1] : '';
+          
+          // Check if we already have this table in dataScans
+          const existingScan = dataScans.find(scan => scan.table_name === tableName);
+          
+          if (existingScan) {
+            // Update existing scan with table function filter
+            existingScan.table_function_filter = filterExpression;
+          } else {
+            // Add new scan
+            dataScans.push({
+              table_name: tableName,
+              scan_type: 'TABLE_FUNCTION',
+              filters: [],
+              timestamp: '',
+              rows_scanned: 0,
+              duration_ms: 0,
+              table_function_filter: filterExpression
+            });
+          }
+        });
+      }
+      
+      // Also look for any other TableFunction patterns that might have different formats
+      const moreFunctionMatches = plan.match(/TableFunction\(.*?columns=/g);
+      if (moreFunctionMatches) {
+        moreFunctionMatches.forEach(match => {
+          // Try to extract a table name if possible
+          const tableMatch = match.match(/table=(\S+)/);
+          if (!tableMatch) return; // Skip if no table name found
+          
+          const tableName = tableMatch[1].replace(/,/g, '');
+          
+          // Skip if we already processed this table function
+          if (dataScans.some(scan => scan.table_name === tableName)) return;
+          
+          dataScans.push({
+            table_name: tableName,
+            scan_type: 'TABLE_FUNCTION',
+            filters: [],
+            timestamp: '',
+            rows_scanned: 0,
+            duration_ms: 0,
+            table_function_filter: match
+          });
+        });
+      }
+    }
+    
     return {
       query,
       plan,
@@ -229,7 +364,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       vdsDatasetPaths,
       vdsDetails,
       planPhases,
-      reflections
+      reflections,
+      dataScans
     };
   } catch (error) {
     console.error('Error extracting profile data:', error);
