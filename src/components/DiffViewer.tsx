@@ -219,26 +219,24 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
             </div>
           </div>
           {leftData.snapshotId && rightData.snapshotId && leftData.snapshotId !== rightData.snapshotId && (
-            <div className="flex-1">
-              <div className="border rounded-lg bg-yellow-100 p-3 text-yellow-800 font-semibold">
-                Snapshot IDs differ!
-              </div>
+            <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
+              Snapshot IDs differ!
             </div>
           )}
         </div>
         {/* Dataset Information Section */}
         <div className="space-y-4">
           {/* PDS Dataset Paths */}
-          {leftData.pdsDatasetPaths.join('\n') !== rightData.pdsDatasetPaths.join('\n') && (
-            <div className="border rounded-lg bg-yellow-100 p-3 text-yellow-800 font-semibold mb-2">
-              PDS Dataset Paths differ!
-            </div>
-          )}
           <div className="border rounded-lg overflow-hidden bg-white">
             <div className="bg-blue-100 p-3 font-medium text-blue-800">
               PDS Dataset Paths
             </div>
             <div className="p-4">
+              {leftData.pdsDatasetPaths.join('\n') !== rightData.pdsDatasetPaths.join('\n') && (
+                <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
+                  PDS Dataset Paths differ!
+                </div>
+              )}
               <ReactDiffViewer
                 oldValue={leftData.pdsDatasetPaths.join('\n')}
                 newValue={rightData.pdsDatasetPaths.join('\n')}
@@ -254,16 +252,16 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
           </div>
 
           {/* VDS Dataset Paths */}
-          {leftData.vdsDatasetPaths.join('\n') !== rightData.vdsDatasetPaths.join('\n') && (
-            <div className="border rounded-lg bg-yellow-100 p-3 text-yellow-800 font-semibold mb-2">
-              VDS Dataset Paths differ!
-            </div>
-          )}
           <div className="border rounded-lg overflow-hidden bg-white">
             <div className="bg-blue-100 p-3 font-medium text-blue-800">
               VDS Dataset Paths
             </div>
             <div className="p-4">
+              {leftData.vdsDatasetPaths.join('\n') !== rightData.vdsDatasetPaths.join('\n') && (
+                <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
+                  VDS Dataset Paths differ!
+                </div>
+              )}
               <ReactDiffViewer
                 oldValue={leftData.vdsDatasetPaths.join('\n')}
                 newValue={rightData.vdsDatasetPaths.join('\n')}
