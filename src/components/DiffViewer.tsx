@@ -5,6 +5,7 @@ import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql';
 import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ProfileData } from '@/utils/jqUtils';
 import DataScanComparison from './DataScanComparison';
+import OpenAISetupBox from './OpenAISetupBox';
 
 SyntaxHighlighter.registerLanguage('sql', sql);
 
@@ -196,29 +197,32 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
 
   // For plan section, render each phase in its own box
   return (
-    <div className="space-y-6">
-      {planPhases.map((phase) => (
-        <div key={phase.phaseNumber} className="border rounded-lg overflow-hidden bg-white">
-          <div className="bg-blue-100 p-3 font-medium text-blue-800">
-            Phase {phase.phaseNumber}
+    <>
+      <OpenAISetupBox />
+      <div className="space-y-6">
+        {planPhases.map((phase) => (
+          <div key={phase.phaseNumber} className="border rounded-lg overflow-hidden bg-white">
+            <div className="bg-blue-100 p-3 font-medium text-blue-800">
+              Phase {phase.phaseNumber}
+            </div>
+            <div className="p-4">
+              <ReactDiffViewer
+                oldValue={phase.leftContent}
+                newValue={phase.rightContent}
+                splitView={true}
+                useDarkTheme={false}
+                showDiffOnly={false}
+                disableWordDiff={true}
+                leftTitle="Source"
+                rightTitle="Target"
+                compareMethod={DiffMethod.WORDS}
+                styles={customStyles}
+              />
+            </div>
           </div>
-          <div className="p-4">
-            <ReactDiffViewer
-              oldValue={phase.leftContent}
-              newValue={phase.rightContent}
-              splitView={true}
-              useDarkTheme={false}
-              showDiffOnly={false}
-              disableWordDiff={true}
-              leftTitle="Source"
-              rightTitle="Target"
-              compareMethod={DiffMethod.WORDS}
-              styles={customStyles}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 };
 
