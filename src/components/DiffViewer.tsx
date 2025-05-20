@@ -16,12 +16,6 @@ interface DiffViewerProps {
   selectedSection: string;
 }
 
-interface PlanPhase {
-  phaseNumber: string;
-  leftContent: string;
-  rightContent: string;
-}
-
 const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSection }) => {
   // Custom styles to improve word-level diffing
   const customStyles = {
@@ -59,66 +53,49 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
     const leftPlan = leftData.plan;
     const rightPlan = rightData.plan;
 
-    // Regular expression to match phase headers (e.g., "00-00", "01-02", etc.)
-    const phaseRegex = /^(\d{2}-\d{2})\s/;
-    
-    // Split plans into lines
-    const leftLines = leftPlan.split('\n');
-    const rightLines = rightPlan.split('\n');
-    
-    // Group lines by phase
-    const leftPhases: Record<string, string[]> = {};
-    const rightPhases: Record<string, string[]> = {};
-    
-    let currentLeftPhase = '';
-    let currentRightPhase = '';
-    
-    // Process left plan
-    leftLines.forEach(line => {
-      const match = line.match(phaseRegex);
-      if (match) {
-        currentLeftPhase = match[1];
-        if (!leftPhases[currentLeftPhase]) {
-          leftPhases[currentLeftPhase] = [];
+    // Regex to match phase header and type, e.g. "00-05 Filter(...)"
+    const phaseHeaderRegex = /^(\d{2}-\d{2})\s+(\w+)/;
+
+    // Helper to parse phases into a map of type -> { phaseNumber, content }
+    function parsePhases(plan: string) {
+      const lines = plan.split('\n');
+      const phases: Record<string, { phaseNumber: string; content: string[] }> = {};
+      let currentType = '';
+      let currentNumber = '';
+      lines.forEach(line => {
+        const match = line.match(phaseHeaderRegex);
+        if (match) {
+          currentNumber = match[1];
+          currentType = match[2];
+          if (!phases[currentType]) {
+            phases[currentType] = { phaseNumber: currentNumber, content: [] };
+          }
         }
-      }
-      
-      if (currentLeftPhase) {
-        leftPhases[currentLeftPhase].push(line);
-      }
-    });
-    
-    // Process right plan
-    rightLines.forEach(line => {
-      const match = line.match(phaseRegex);
-      if (match) {
-        currentRightPhase = match[1];
-        if (!rightPhases[currentRightPhase]) {
-          rightPhases[currentRightPhase] = [];
+        if (currentType) {
+          phases[currentType].content.push(line);
         }
-      }
-      
-      if (currentRightPhase) {
-        rightPhases[currentRightPhase].push(line);
-      }
-    });
-    
-    // Combine phases from both sides
-    const allPhaseNumbers = new Set([
+      });
+      return phases;
+    }
+
+    const leftPhases = parsePhases(leftPlan);
+    const rightPhases = parsePhases(rightPlan);
+
+    // Get all unique phase types
+    const allTypes = Array.from(new Set([
       ...Object.keys(leftPhases),
       ...Object.keys(rightPhases)
-    ]);
-    
-    // Sort phase numbers
-    const sortedPhaseNumbers = Array.from(allPhaseNumbers).sort();
-    
-    // Create combined phase objects
-    const phases: PlanPhase[] = sortedPhaseNumbers.map(phaseNumber => ({
-      phaseNumber,
-      leftContent: leftPhases[phaseNumber]?.join('\n') || '',
-      rightContent: rightPhases[phaseNumber]?.join('\n') || ''
+    ])).sort();
+
+    // Build aligned phases by type
+    const phases = allTypes.map(type => ({
+      phaseType: type,
+      leftPhaseNumber: leftPhases[type]?.phaseNumber || '',
+      rightPhaseNumber: rightPhases[type]?.phaseNumber || '',
+      leftContent: leftPhases[type]?.content.join('\n') || '',
+      rightContent: rightPhases[type]?.content.join('\n') || ''
     }));
-    
+
     return phases;
   }, [leftData, rightData, selectedSection]);
 
@@ -203,9 +180,15 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
       <OpenAIChatBox />
       <div className="space-y-6">
         {planPhases.map((phase) => (
-          <div key={phase.phaseNumber} className="border rounded-lg overflow-hidden bg-white">
+          <div key={phase.phaseType} className="border rounded-lg overflow-hidden bg-white">
             <div className="bg-blue-100 p-3 font-medium text-blue-800">
-              Phase {phase.phaseNumber}
+              Phase Type: {phase.phaseType}
+              {phase.leftPhaseNumber && (
+                <span className="ml-4 text-xs text-gray-500">Source phase: {phase.leftPhaseNumber}</span>
+              )}
+              {phase.rightPhaseNumber && (
+                <span className="ml-4 text-xs text-gray-500">Target phase: {phase.rightPhaseNumber}</span>
+              )}
             </div>
             <div className="p-4">
               <ReactDiffViewer
