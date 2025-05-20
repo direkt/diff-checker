@@ -6,6 +6,7 @@ import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ProfileData } from '@/utils/jqUtils';
 import DataScanComparison from './DataScanComparison';
 import OpenAISetupBox from './OpenAISetupBox';
+import OpenAIChatBox from './OpenAIChatBox';
 
 SyntaxHighlighter.registerLanguage('sql', sql);
 
@@ -199,6 +200,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
   return (
     <>
       <OpenAISetupBox />
+      <OpenAIChatBox />
       <div className="space-y-6">
         {planPhases.map((phase) => (
           <div key={phase.phaseNumber} className="border rounded-lg overflow-hidden bg-white">
