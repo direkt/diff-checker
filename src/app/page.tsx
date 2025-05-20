@@ -35,6 +35,7 @@ export default function Home() {
   const [selectedRightQueryId, setSelectedRightQueryId] = useState<string>("");
   
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [showWordDiff, setShowWordDiff] = useState(true);
 
   // Group files by query ID whenever files change
   useEffect(() => {
@@ -411,6 +412,16 @@ export default function Home() {
           </div>
         )}
 
+        {/* Toggle Word Diff Button */}
+        <div className="flex justify-center mb-4">
+          <button
+            className={`px-4 py-2 rounded font-semibold shadow transition-colors duration-150 ${showWordDiff ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            onClick={() => setShowWordDiff((prev) => !prev)}
+          >
+            {showWordDiff ? 'Hide Word Differences' : 'Show Word Differences'}
+          </button>
+        </div>
+
         {isProcessing ? (
           <div className="text-center p-8">
             <p className="text-lg">Processing files...</p>
@@ -420,6 +431,7 @@ export default function Home() {
             leftData={leftData}
             rightData={rightData}
             selectedSection={selectedSection}
+            showWordDiff={showWordDiff}
           />
         )}
       </div>

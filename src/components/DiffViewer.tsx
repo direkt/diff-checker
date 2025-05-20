@@ -13,9 +13,10 @@ interface DiffViewerProps {
   leftData: ProfileData | null;
   rightData: ProfileData | null;
   selectedSection: string;
+  showWordDiff?: boolean;
 }
 
-const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSection }) => {
+const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSection, showWordDiff = true }) => {
   // Custom styles to improve word-level diffing
   const customStyles = {
     variables: {
@@ -172,7 +173,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
           splitView={true}
           useDarkTheme={false}
           showDiffOnly={false}
-          disableWordDiff={true}
+          disableWordDiff={!showWordDiff}
           leftTitle="Source"
           rightTitle="Target"
           styles={customStyles}
@@ -244,7 +245,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
                 splitView={true}
                 useDarkTheme={false}
                 showDiffOnly={false}
-                disableWordDiff={true}
+                disableWordDiff={!showWordDiff}
                 leftTitle="Source"
                 rightTitle="Target"
                 styles={customStyles}
@@ -269,7 +270,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
                 splitView={true}
                 useDarkTheme={false}
                 showDiffOnly={false}
-                disableWordDiff={true}
+                disableWordDiff={!showWordDiff}
                 leftTitle="Source"
                 rightTitle="Target"
                 styles={customStyles}
@@ -312,7 +313,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
                     splitView={true}
                     useDarkTheme={false}
                     showDiffOnly={false}
-                    disableWordDiff={true}
+                    disableWordDiff={!showWordDiff}
                     leftTitle="Source"
                     rightTitle="Target"
                     compareMethod={DiffMethod.WORDS}
@@ -350,7 +351,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               splitView={true}
               useDarkTheme={false}
               showDiffOnly={false}
-              disableWordDiff={true}
+              disableWordDiff={!showWordDiff}
               leftTitle="Source"
               rightTitle="Target"
               compareMethod={DiffMethod.WORDS}
