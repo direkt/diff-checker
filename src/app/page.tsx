@@ -233,193 +233,196 @@ export default function Home() {
         </p>
       </header>
 
-      {/* Single upload area at the top */}
-      <div className="mb-8 max-w-3xl mx-auto">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Upload Query Profiles</h2>
-          <p className="text-gray-600 mb-4">
-            Upload folders containing query profile JSON files. 
-            The folder name will be used as the query ID in the dropdown.
-          </p>
-          <FileUploader 
-            onFilesProcessed={handleFilesProcessed} 
-            side="center"
+      {/* Main content area */}
+      <div className="flex flex-col space-y-8">
+        {/* Single upload area at the top */}
+        <div className="mb-8 max-w-3xl mx-auto">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Upload Query Profiles</h2>
+            <p className="text-gray-600 mb-4">
+              Upload folders containing query profile JSON files. 
+              The folder name will be used as the query ID in the dropdown.
+            </p>
+            <FileUploader 
+              onFilesProcessed={handleFilesProcessed} 
+              side="center"
+            />
+            {allFiles.length > 0 && (
+              <div className="mt-4 text-sm text-gray-600">
+                <p>{getFolderCount()} folders uploaded with {allFiles.length} total files</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Selection dropdowns in a grid */}
+        {queryGroups.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <h3 className="text-lg font-medium text-blue-800 mb-3">Source Selection</h3>
+              <div className="mb-4">
+                <label htmlFor="leftQuerySelect" className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Source Query ID:
+                </label>
+                <select
+                  id="leftQuerySelect"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  value={selectedLeftQueryId}
+                  onChange={handleLeftQuerySelect}
+                >
+                  {queryGroups.map((group) => (
+                    <option key={`left-${group.queryId}`} value={group.queryId}>
+                      {group.folderName} ({getFileCountForFolder(group.queryId)} files)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <h3 className="text-lg font-medium text-blue-800 mb-3">Target Selection</h3>
+              <div className="mb-4">
+                <label htmlFor="rightQuerySelect" className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Target Query ID:
+                </label>
+                <select
+                  id="rightQuerySelect"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  value={selectedRightQueryId}
+                  onChange={handleRightQuerySelect}
+                >
+                  {queryGroups.map((group) => (
+                    <option key={`right-${group.queryId}`} value={group.queryId}>
+                      {group.folderName} ({getFileCountForFolder(group.queryId)} files)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Comparison section selection */}
+        <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
+          <label htmlFor="sectionSelect" className="block text-sm font-medium text-gray-700 mb-1">
+            Select Section to Compare:
+          </label>
+          <select
+            id="sectionSelect"
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedSection}
+            onChange={(e) => setSelectedSection(e.target.value)}
+          >
+            <option value="plan">Query Plan</option>
+            <option value="pdsDatasetPaths">PDS Dataset Paths</option>
+            <option value="vdsDatasetPaths">VDS Dataset Paths</option>
+            <option value="vdsDetails">VDS Details with SQL</option>
+            <option value="planPhases">Plan Phases</option>
+            <option value="reflections">Reflections</option>
+            <option value="dataScans">Data Scans</option>
+          </select>
+        </div>
+
+        {/* Display the queries */}
+        {leftData && rightData && (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="border rounded-lg p-4 bg-white shadow-sm">
+              <h3 className="font-medium text-gray-700 mb-2">Source Query: {selectedLeftQueryId}</h3>
+              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60">
+                {leftData.query}
+              </pre>
+            </div>
+            <div className="border rounded-lg p-4 bg-white shadow-sm">
+              <h3 className="font-medium text-gray-700 mb-2">Target Query: {selectedRightQueryId}</h3>
+              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60">
+                {rightData.query}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        {/* Display reflections if selected */}
+        {selectedSection === 'reflections' && leftData && rightData && (
+          <div className="grid grid-cols-2 gap-8 mt-8">
+            <div className="space-y-6">
+              <div className="border rounded-lg p-4 bg-white shadow-sm">
+                <h3 className="font-medium text-blue-800 mb-3">Source Chosen Reflections</h3>
+                {leftData.reflections?.chosen?.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-2">
+                    {leftData.reflections.chosen.map((reflection, index) => (
+                      <li key={index} className="text-gray-700">{reflection}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 italic">No chosen reflections</p>
+                )}
+                {leftData.reflections?.chosen?.some(r => r.includes('accelerationDetails') || r.includes('Default Reflections')) && (
+                  <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
+                )}
+              </div>
+              <div className="border rounded-lg p-4 bg-white shadow-sm">
+                <h3 className="font-medium text-blue-800 mb-3">Source Considered Reflections</h3>
+                {leftData.reflections?.considered?.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-2">
+                    {leftData.reflections.considered.map((reflection, index) => (
+                      <li key={index} className="text-gray-700">{reflection}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 italic">No considered reflections</p>
+                )}
+                {leftData.reflections?.considered?.some(r => r.includes('Raw Reflection') || r.includes('Error:')) && (
+                  <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="border rounded-lg p-4 bg-white shadow-sm">
+                <h3 className="font-medium text-blue-800 mb-3">Target Chosen Reflections</h3>
+                {rightData.reflections?.chosen?.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-2">
+                    {rightData.reflections.chosen.map((reflection, index) => (
+                      <li key={index} className="text-gray-700">{reflection}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 italic">No chosen reflections</p>
+                )}
+                {rightData.reflections?.chosen?.some(r => r.includes('accelerationDetails') || r.includes('Default Reflections')) && (
+                  <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
+                )}
+              </div>
+              <div className="border rounded-lg p-4 bg-white shadow-sm">
+                <h3 className="font-medium text-blue-800 mb-3">Target Considered Reflections</h3>
+                {rightData.reflections?.considered?.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-2">
+                    {rightData.reflections.considered.map((reflection, index) => (
+                      <li key={index} className="text-gray-700">{reflection}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 italic">No considered reflections</p>
+                )}
+                {rightData.reflections?.considered?.some(r => r.includes('Raw Reflection') || r.includes('Error:')) && (
+                  <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isProcessing ? (
+          <div className="text-center p-8">
+            <p className="text-lg">Processing files...</p>
+          </div>
+        ) : (
+          <DiffViewer
+            leftData={leftData}
+            rightData={rightData}
+            selectedSection={selectedSection}
           />
-          {allFiles.length > 0 && (
-            <div className="mt-4 text-sm text-gray-600">
-              <p>{getFolderCount()} folders uploaded with {allFiles.length} total files</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
-
-      {/* Selection dropdowns in a grid */}
-      {queryGroups.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h3 className="text-lg font-medium text-blue-800 mb-3">Source Selection</h3>
-            <div className="mb-4">
-              <label htmlFor="leftQuerySelect" className="block text-sm font-medium text-gray-700 mb-1">
-                Select Source Query ID:
-              </label>
-              <select
-                id="leftQuerySelect"
-                className="w-full p-2 border border-gray-300 rounded-md"
-                value={selectedLeftQueryId}
-                onChange={handleLeftQuerySelect}
-              >
-                {queryGroups.map((group) => (
-                  <option key={`left-${group.queryId}`} value={group.queryId}>
-                    {group.folderName} ({getFileCountForFolder(group.queryId)} files)
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h3 className="text-lg font-medium text-blue-800 mb-3">Target Selection</h3>
-            <div className="mb-4">
-              <label htmlFor="rightQuerySelect" className="block text-sm font-medium text-gray-700 mb-1">
-                Select Target Query ID:
-              </label>
-              <select
-                id="rightQuerySelect"
-                className="w-full p-2 border border-gray-300 rounded-md"
-                value={selectedRightQueryId}
-                onChange={handleRightQuerySelect}
-              >
-                {queryGroups.map((group) => (
-                  <option key={`right-${group.queryId}`} value={group.queryId}>
-                    {group.folderName} ({getFileCountForFolder(group.queryId)} files)
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Comparison section selection */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
-        <label htmlFor="sectionSelect" className="block text-sm font-medium text-gray-700 mb-1">
-          Select Section to Compare:
-        </label>
-        <select
-          id="sectionSelect"
-          className="w-full p-2 border border-gray-300 rounded-md"
-          value={selectedSection}
-          onChange={(e) => setSelectedSection(e.target.value)}
-        >
-          <option value="plan">Query Plan</option>
-          <option value="pdsDatasetPaths">PDS Dataset Paths</option>
-          <option value="vdsDatasetPaths">VDS Dataset Paths</option>
-          <option value="vdsDetails">VDS Details with SQL</option>
-          <option value="planPhases">Plan Phases</option>
-          <option value="reflections">Reflections</option>
-          <option value="dataScans">Data Scans</option>
-        </select>
-      </div>
-
-      {/* Display the queries */}
-      {leftData && rightData && (
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="border rounded-lg p-4 bg-white shadow-sm">
-            <h3 className="font-medium text-gray-700 mb-2">Source Query: {selectedLeftQueryId}</h3>
-            <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60">
-              {leftData.query}
-            </pre>
-          </div>
-          <div className="border rounded-lg p-4 bg-white shadow-sm">
-            <h3 className="font-medium text-gray-700 mb-2">Target Query: {selectedRightQueryId}</h3>
-            <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60">
-              {rightData.query}
-            </pre>
-          </div>
-        </div>
-      )}
-
-      {/* Display reflections if selected */}
-      {selectedSection === 'reflections' && leftData && rightData && (
-        <div className="grid grid-cols-2 gap-8 mt-8">
-          <div className="space-y-6">
-            <div className="border rounded-lg p-4 bg-white shadow-sm">
-              <h3 className="font-medium text-blue-800 mb-3">Source Chosen Reflections</h3>
-              {leftData.reflections?.chosen?.length > 0 ? (
-                <ul className="list-disc pl-5 space-y-2">
-                  {leftData.reflections.chosen.map((reflection, index) => (
-                    <li key={index} className="text-gray-700">{reflection}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 italic">No chosen reflections</p>
-              )}
-              {leftData.reflections?.chosen?.some(r => r.includes('accelerationDetails') || r.includes('Default Reflections')) && (
-                <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
-              )}
-            </div>
-            <div className="border rounded-lg p-4 bg-white shadow-sm">
-              <h3 className="font-medium text-blue-800 mb-3">Source Considered Reflections</h3>
-              {leftData.reflections?.considered?.length > 0 ? (
-                <ul className="list-disc pl-5 space-y-2">
-                  {leftData.reflections.considered.map((reflection, index) => (
-                    <li key={index} className="text-gray-700">{reflection}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 italic">No considered reflections</p>
-              )}
-              {leftData.reflections?.considered?.some(r => r.includes('Raw Reflection') || r.includes('Error:')) && (
-                <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
-              )}
-            </div>
-          </div>
-          <div className="space-y-6">
-            <div className="border rounded-lg p-4 bg-white shadow-sm">
-              <h3 className="font-medium text-blue-800 mb-3">Target Chosen Reflections</h3>
-              {rightData.reflections?.chosen?.length > 0 ? (
-                <ul className="list-disc pl-5 space-y-2">
-                  {rightData.reflections.chosen.map((reflection, index) => (
-                    <li key={index} className="text-gray-700">{reflection}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 italic">No chosen reflections</p>
-              )}
-              {rightData.reflections?.chosen?.some(r => r.includes('accelerationDetails') || r.includes('Default Reflections')) && (
-                <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
-              )}
-            </div>
-            <div className="border rounded-lg p-4 bg-white shadow-sm">
-              <h3 className="font-medium text-blue-800 mb-3">Target Considered Reflections</h3>
-              {rightData.reflections?.considered?.length > 0 ? (
-                <ul className="list-disc pl-5 space-y-2">
-                  {rightData.reflections.considered.map((reflection, index) => (
-                    <li key={index} className="text-gray-700">{reflection}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 italic">No considered reflections</p>
-              )}
-              {rightData.reflections?.considered?.some(r => r.includes('Raw Reflection') || r.includes('Error:')) && (
-                <p className="text-xs text-blue-600 mt-3">Note: These reflections were extracted from encoded acceleration details</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isProcessing ? (
-        <div className="text-center p-8">
-          <p className="text-lg">Processing files...</p>
-        </div>
-      ) : (
-        <DiffViewer
-          leftData={leftData}
-          rightData={rightData}
-          selectedSection={selectedSection}
-        />
-      )}
     </div>
   );
 }
