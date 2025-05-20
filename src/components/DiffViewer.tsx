@@ -86,10 +86,30 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
     const allTypes = Array.from(new Set([
       ...Object.keys(leftPhases),
       ...Object.keys(rightPhases)
-    ])).sort();
+    ]));
 
-    // Build aligned phases by type
-    const phases = allTypes.map(type => ({
+    // Helper to extract a sortable number from phase number string (e.g., '00-05' -> 5)
+    function extractPhaseNumber(phaseNumber: string): number {
+      if (!phaseNumber) return Number.POSITIVE_INFINITY;
+      const parts = phaseNumber.split('-');
+      // Use the second part if available, otherwise the first
+      return parts.length === 2 ? parseInt(parts[1], 10) : parseInt(parts[0], 10);
+    }
+
+    // Build array of { type, phaseNumber } for sorting
+    const typeWithNumbers = allTypes.map(type => {
+      const leftNum = leftPhases[type]?.phaseNumber;
+      const rightNum = rightPhases[type]?.phaseNumber;
+      // Prefer left, fallback to right
+      const phaseNumber = leftNum || rightNum || '';
+      return { type, phaseNumber };
+    });
+
+    // Sort by extracted phase number (smallest to largest)
+    typeWithNumbers.sort((a, b) => extractPhaseNumber(a.phaseNumber) - extractPhaseNumber(b.phaseNumber));
+
+    // Build aligned phases by sorted type
+    const phases = typeWithNumbers.map(({ type }) => ({
       phaseType: type,
       leftPhaseNumber: leftPhases[type]?.phaseNumber || '',
       rightPhaseNumber: rightPhases[type]?.phaseNumber || '',
