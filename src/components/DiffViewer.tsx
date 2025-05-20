@@ -179,6 +179,9 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
       <OpenAISetupBox />
       <OpenAIChatBox />
       <div className="space-y-6">
+        <div className="px-4 py-2 text-sm text-gray-700 font-medium">
+          {planPhases.length} phase type{planPhases.length !== 1 ? 's' : ''} found
+        </div>
         {planPhases.map((phase) => (
           <div key={phase.phaseType} className="border rounded-lg overflow-hidden bg-white">
             <div className="bg-blue-100 p-3 font-medium text-blue-800">
