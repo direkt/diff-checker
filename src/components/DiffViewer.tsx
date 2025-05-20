@@ -196,6 +196,12 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
   if (selectedSection === 'plan' && leftData?.jsonPlan && rightData?.jsonPlan) {
     return (
       <div className="flex flex-col gap-8">
+        {/* Snapshot IDs differ warning - now above the snapshot IDs */}
+        {leftData.snapshotId && rightData.snapshotId && leftData.snapshotId !== rightData.snapshotId && (
+          <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
+            Snapshot IDs differ!
+          </div>
+        )}
         {/* Snapshot ID Section */}
         <div className="flex flex-row gap-8 items-center">
           <div className="flex-1">
@@ -218,11 +224,6 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               )}
             </div>
           </div>
-          {leftData.snapshotId && rightData.snapshotId && leftData.snapshotId !== rightData.snapshotId && (
-            <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
-              Snapshot IDs differ!
-            </div>
-          )}
         </div>
         {/* Dataset Information Section */}
         <div className="space-y-4">
