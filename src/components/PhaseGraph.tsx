@@ -32,7 +32,7 @@ function extractNodesAndEdges(planJson: any): { nodes: Node[]; edges: Edge[] } {
     const phase = plan[phaseId];
     nodes.push({
       id: phaseId.replace(/\"/g, ''),
-      data: { label: `${phaseId.replace(/\"/g, '')}: ${phase.op?.split('.')?.pop() || ''}` },
+      data: { label: `${phaseId.replace(/\"/g, '')}: ${phase.op?.split('.')?.pop() || ''}${phase.phaseName ? ` (${phase.phaseName})` : ''}` },
       position: { x: 0, y: i * yStep },
       style: { minWidth: 180, padding: 8, borderRadius: 8, background: '#f0f4ff', border: '1px solid #b6c6e3' },
     });
