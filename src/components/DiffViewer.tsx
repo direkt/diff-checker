@@ -5,8 +5,6 @@ import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql';
 import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ProfileData } from '@/utils/jqUtils';
 import DataScanComparison from './DataScanComparison';
-import OpenAISetupBox from './OpenAISetupBox';
-import OpenAIChatBox from './OpenAIChatBox';
 import { PhaseGraph } from './PhaseGraph';
 
 SyntaxHighlighter.registerLanguage('sql', sql);
@@ -207,8 +205,6 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
           </div>
         </div>
         <div>
-          <OpenAISetupBox />
-          <OpenAIChatBox />
           <div className="space-y-6">
             <div className="px-4 py-2 text-sm text-gray-700 font-medium">
               {planPhases.length} phase type{planPhases.length !== 1 ? 's' : ''} found
@@ -247,42 +243,38 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
   }
 
   return (
-    <>
-      <OpenAISetupBox />
-      <OpenAIChatBox />
-      <div className="space-y-6">
-        <div className="px-4 py-2 text-sm text-gray-700 font-medium">
-          {planPhases.length} phase type{planPhases.length !== 1 ? 's' : ''} found
-        </div>
-        {planPhases.map((phase) => (
-          <div key={phase.phaseType} className="border rounded-lg overflow-hidden bg-white">
-            <div className="bg-blue-100 p-3 font-medium text-blue-800">
-              Phase Type: {phase.phaseType}
-              {phase.leftPhaseNumber && (
-                <span className="ml-4 text-xs text-gray-500">Source phase: {phase.leftPhaseNumber}</span>
-              )}
-              {phase.rightPhaseNumber && (
-                <span className="ml-4 text-xs text-gray-500">Target phase: {phase.rightPhaseNumber}</span>
-              )}
-            </div>
-            <div className="p-4">
-              <ReactDiffViewer
-                oldValue={phase.leftContent}
-                newValue={phase.rightContent}
-                splitView={true}
-                useDarkTheme={false}
-                showDiffOnly={false}
-                disableWordDiff={true}
-                leftTitle="Source"
-                rightTitle="Target"
-                compareMethod={DiffMethod.WORDS}
-                styles={customStyles}
-              />
-            </div>
-          </div>
-        ))}
+    <div className="space-y-6">
+      <div className="px-4 py-2 text-sm text-gray-700 font-medium">
+        {planPhases.length} phase type{planPhases.length !== 1 ? 's' : ''} found
       </div>
-    </>
+      {planPhases.map((phase) => (
+        <div key={phase.phaseType} className="border rounded-lg overflow-hidden bg-white">
+          <div className="bg-blue-100 p-3 font-medium text-blue-800">
+            Phase Type: {phase.phaseType}
+            {phase.leftPhaseNumber && (
+              <span className="ml-4 text-xs text-gray-500">Source phase: {phase.leftPhaseNumber}</span>
+            )}
+            {phase.rightPhaseNumber && (
+              <span className="ml-4 text-xs text-gray-500">Target phase: {phase.rightPhaseNumber}</span>
+            )}
+          </div>
+          <div className="p-4">
+            <ReactDiffViewer
+              oldValue={phase.leftContent}
+              newValue={phase.rightContent}
+              splitView={true}
+              useDarkTheme={false}
+              showDiffOnly={false}
+              disableWordDiff={true}
+              leftTitle="Source"
+              rightTitle="Target"
+              compareMethod={DiffMethod.WORDS}
+              styles={customStyles}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 };
 

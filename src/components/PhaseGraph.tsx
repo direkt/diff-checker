@@ -7,9 +7,9 @@ interface PhaseGraphProps {
   title?: string;
 }
 
-function extractNodesAndEdges(planJson: any): { nodes: Node[]; edges: Edge[] } {
+function extractNodesAndEdges(planJson: unknown): { nodes: Node[]; edges: Edge[] } {
   // planJson can be a stringified JSON or an object
-  let plan: any;
+  let plan: unknown;
   if (typeof planJson === 'string') {
     try {
       plan = JSON.parse(planJson);
@@ -22,26 +22,26 @@ function extractNodesAndEdges(planJson: any): { nodes: Node[]; edges: Edge[] } {
   if (!plan || typeof plan !== 'object') return { nodes: [], edges: [] };
 
   // If the plan is wrapped in a 'jsonPlan' field, use that
-  if (plan.jsonPlan) plan = plan.jsonPlan;
+  if ('jsonPlan' in (plan as object)) plan = (plan as { jsonPlan: unknown }).jsonPlan;
 
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   const yStep = 120;
   let i = 0;
-  for (const phaseId in plan) {
-    const phase = plan[phaseId];
+  for (const phaseId in plan as Record<string, unknown>) {
+    const phase = (plan as Record<string, unknown>)[phaseId] as Record<string, unknown>;
     nodes.push({
-      id: phaseId.replace(/\"/g, ''),
-      data: { label: `${phaseId.replace(/\"/g, '')}: ${phase.op?.split('.')?.pop() || ''}${phase.phaseName ? ` (${phase.phaseName})` : ''}` },
+      id: phaseId.replace(/"/g, ''),
+      data: { label: `${phaseId.replace(/"/g, '')}: ${typeof phase.op === 'string' ? phase.op.split('.')?.pop() || '' : ''}${phase.phaseName ? ` (${phase.phaseName})` : ''}` },
       position: { x: 0, y: i * yStep },
       style: { minWidth: 180, padding: 8, borderRadius: 8, background: '#f0f4ff', border: '1px solid #b6c6e3' },
     });
     if (Array.isArray(phase.inputs)) {
-      for (const input of phase.inputs) {
+      for (const input of phase.inputs as string[]) {
         edges.push({
-          id: `${input}->${phaseId.replace(/\"/g, '')}`,
-          source: input.replace(/\"/g, ''),
-          target: phaseId.replace(/\"/g, ''),
+          id: `${input}->${phaseId.replace(/"/g, '')}`,
+          source: input.replace(/"/g, ''),
+          target: phaseId.replace(/"/g, ''),
           animated: true,
           style: { stroke: '#4f8cff' },
         });
@@ -52,29 +52,24 @@ function extractNodesAndEdges(planJson: any): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-export const PhaseGraph: React.FC<PhaseGraphProps> = ({ planJson, title }) => {
+export const PhaseGraph: React.FC<PhaseGraphProps> = ({ planJson }) => {
   const { nodes, edges } = React.useMemo(() => extractNodesAndEdges(planJson), [planJson]);
 
   if (nodes.length === 0) {
-    return <div className="text-gray-500 p-4">No plan graph data available</div>;
+    return null;
   }
 
   return (
-    <div style={{ width: '100%', height: 500, background: '#f9fbfd', borderRadius: 12, boxShadow: '0 2px 8px #e3e8f0' }}>
-      {title && <div className="font-semibold text-blue-800 px-4 pt-4">{title}</div>}
-      <div style={{ width: '100%', height: 460 }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          fitView
-          minZoom={0.2}
-          maxZoom={2}
-        >
-          <MiniMap nodeColor={() => '#4f8cff'} />
-          <Controls />
-          <Background color="#e3e8f0" gap={16} />
-        </ReactFlow>
-      </div>
-    </div>
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      fitView
+      minZoom={0.2}
+      maxZoom={2}
+    >
+      <MiniMap nodeColor={() => '#4f8cff'} />
+      <Controls />
+      <Background color="#e3e8f0" gap={16} />
+    </ReactFlow>
   );
 }; 
