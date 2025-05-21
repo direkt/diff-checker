@@ -3,9 +3,11 @@
 First, run the development server:
 
 ```bash
-npm install
+brew install pnpm
 
-npm run dev
+pnpm install
+
+pnpm run dev
 
 ```
 
