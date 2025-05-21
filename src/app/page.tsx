@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import FileUploader from "@/components/FileUploader";
 import DiffViewer from "@/components/DiffViewer";
 import { extractProfileData, ProfileData } from "@/utils/jqUtils";
-import { ollamaAPI } from "@/utils/ollamaUtils";
 
 interface ProcessedFile {
   name: string;
@@ -22,10 +21,6 @@ export default function Home() {
   const [leftData, setLeftData] = useState<ProfileData | null>(null);
   const [rightData, setRightData] = useState<ProfileData | null>(null);
   const [selectedSection, setSelectedSection] = useState<string>("plan");
-  
-  // Ollama server configuration
-  const [ollamaIp, setOllamaIp] = useState<string>("localhost");
-  const [ollamaPort, setOllamaPort] = useState<string>("11434");
   
   // Use a single files array for both sides
   const [allFiles, setAllFiles] = useState<ProcessedFile[]>([]);
@@ -64,13 +59,6 @@ export default function Home() {
     console.log('Generated query groups:', groups);
     setQueryGroups(groups);
   }, [allFiles]);
-  
-  // Update Ollama API URL when IP or port changes
-  useEffect(() => {
-    const baseUrl = `http://${ollamaIp}:${ollamaPort}`;
-    console.log('Updating Ollama API URL:', baseUrl);
-    ollamaAPI.baseUrl = baseUrl;
-  }, [ollamaIp, ollamaPort]);
 
   // Set default selections when query groups change
   useEffect(() => {
@@ -199,35 +187,6 @@ export default function Home() {
   return (
     <div className="min-h-screen p-4 md:p-8 bg-gray-50">
       <header className="mb-8 relative">
-        <div className="absolute top-0 right-0 flex gap-3 items-start bg-white p-2 rounded-md shadow-sm">
-          <div>
-            <label htmlFor="ollamaIp" className="block text-xs font-medium text-gray-600 mb-1">
-              Ollama IP:
-            </label>
-            <input
-              id="ollamaIp"
-              type="text"
-              value={ollamaIp}
-              onChange={(e) => setOllamaIp(e.target.value)}
-              className="w-32 p-1 text-sm border border-gray-300 rounded-md"
-              placeholder="localhost"
-            />
-          </div>
-          <div>
-            <label htmlFor="ollamaPort" className="block text-xs font-medium text-gray-600 mb-1">
-              Port:
-            </label>
-            <input
-              id="ollamaPort"
-              type="text"
-              value={ollamaPort}
-              onChange={(e) => setOllamaPort(e.target.value)}
-              className="w-24 p-1 text-sm border border-gray-300 rounded-md"
-              placeholder="11434"
-            />
-          </div>
-        </div>
-        
         <h1 className="text-3xl font-bold text-center text-blue-800">Query Profile Diff Checker</h1>
         <p className="text-center text-gray-600 mt-2">
           Upload query profile JSON files to compare and analyze differences
