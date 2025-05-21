@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 
@@ -17,6 +17,7 @@ declare module 'react' {
 
 const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   const readFileAsText = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -327,7 +328,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
     [processFiles]
   );
 
-  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
+  const { getRootProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/json': ['.json'],
@@ -373,7 +374,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
   const getDropzoneText = () => {
     if (side === 'left') return 'Drag & drop JSON files or ZIP archives here for Source';
     if (side === 'right') return 'Drag & drop JSON files or ZIP archives here for Target';
-    return 'Drag & drop JSON files, ZIP archives, or folders here';
+    return '';
   };
 
   return (
@@ -384,7 +385,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
           isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
         }`}
       >
-        <input {...getInputProps()} />
         <p className="text-gray-700 mb-2">
           {isDragActive
             ? 'Drop the files here...'
@@ -393,7 +393,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
         <button
           type="button"
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            folderInputRef.current?.click();
+          }}
         >
           Browse Files
         </button>
@@ -404,12 +407,14 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
           Or select a folder:
         </label>
         <input
+          ref={folderInputRef}
           type="file"
           webkitdirectory="true"
           directory=""
           multiple
           onChange={handleFolderUpload}
           className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          style={{ display: 'inline' }}
         />
       </div>
 
