@@ -226,12 +226,12 @@ export default function Home() {
                 </label>
                 <select
                   id="leftQuerySelect"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-800 bg-white"
                   value={selectedLeftQueryId}
                   onChange={handleLeftQuerySelect}
                 >
                   {queryGroups.map((group) => (
-                    <option key={`left-${group.queryId}`} value={group.queryId}>
+                    <option key={`left-${group.queryId}`} value={group.queryId} className="text-gray-800 bg-white">
                       {group.folderName} ({getFileCountForFolder(group.queryId)} files)
                     </option>
                   ))}
@@ -247,12 +247,12 @@ export default function Home() {
                 </label>
                 <select
                   id="rightQuerySelect"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-800 bg-white"
                   value={selectedRightQueryId}
                   onChange={handleRightQuerySelect}
                 >
                   {queryGroups.map((group) => (
-                    <option key={`right-${group.queryId}`} value={group.queryId}>
+                    <option key={`right-${group.queryId}`} value={group.queryId} className="text-gray-800 bg-white">
                       {group.folderName} ({getFileCountForFolder(group.queryId)} files)
                     </option>
                   ))}
@@ -288,13 +288,13 @@ export default function Home() {
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border rounded-lg p-4 bg-white shadow-sm">
               <h3 className="font-medium text-gray-700 mb-2">Source Query: {selectedLeftQueryId}</h3>
-              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60">
+              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60 text-gray-800">
                 {leftData.query}
               </pre>
             </div>
             <div className="border rounded-lg p-4 bg-white shadow-sm">
               <h3 className="font-medium text-gray-700 mb-2">Target Query: {selectedRightQueryId}</h3>
-              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60">
+              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-md overflow-auto max-h-60 text-gray-800">
                 {rightData.query}
               </pre>
             </div>
