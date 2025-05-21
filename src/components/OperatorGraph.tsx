@@ -5,6 +5,7 @@ import 'reactflow/dist/style.css';
 interface OperatorGraphProps {
   planJson: string | object;
   title?: string;
+  version?: string;
 }
 
 function extractNodesAndEdges(planJson: unknown): { nodes: Node[]; edges: Edge[] } {
@@ -52,7 +53,7 @@ function extractNodesAndEdges(planJson: unknown): { nodes: Node[]; edges: Edge[]
   return { nodes, edges };
 }
 
-export const OperatorGraph: React.FC<OperatorGraphProps> = ({ planJson }) => {
+export const OperatorGraph: React.FC<OperatorGraphProps> = ({ planJson, title, version }) => {
   const { nodes, edges } = React.useMemo(() => extractNodesAndEdges(planJson), [planJson]);
 
   if (nodes.length === 0) {
@@ -60,16 +61,28 @@ export const OperatorGraph: React.FC<OperatorGraphProps> = ({ planJson }) => {
   }
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      fitView
-      minZoom={0.2}
-      maxZoom={2}
-    >
-      <MiniMap nodeColor={() => '#4f8cff'} />
-      <Controls />
-      <Background color="#e3e8f0" gap={16} />
-    </ReactFlow>
+    <div>
+      {version && (
+        <div className="mb-2 text-sm font-medium text-gray-600">
+          Version: {version}
+        </div>
+      )}
+      {title && (
+        <div className="mb-2 text-lg font-semibold">
+          {title}
+        </div>
+      )}
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        fitView
+        minZoom={0.2}
+        maxZoom={2}
+      >
+        <MiniMap nodeColor={() => '#4f8cff'} />
+        <Controls />
+        <Background color="#e3e8f0" gap={16} />
+      </ReactFlow>
+    </div>
   );
 }; 

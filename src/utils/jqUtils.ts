@@ -39,6 +39,10 @@ export interface ProfileData {
    * The snapshot ID extracted from the plan string, if present.
    */
   snapshotId?: string;
+  /**
+   * The Dremio version from the profile.
+   */
+  version?: string;
 }
 
 interface DatasetProfile {
@@ -67,7 +71,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     },
     dataScans: [],
     jsonPlan: undefined,
-    snapshotId: undefined
+    snapshotId: undefined,
+    version: undefined
   };
 
   try {
@@ -79,6 +84,14 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     console.log('Has accelerationProfile:', !!parsedJson.accelerationProfile);
     if (parsedJson.accelerationProfile) {
       console.log('Has accelerationDetails in accelerationProfile:', !!parsedJson.accelerationProfile.accelerationDetails);
+    }
+    
+    // Extract version
+    let version: string | undefined = undefined;
+    if (parsedJson.dremioVersion) {
+      version = parsedJson.dremioVersion;
+    } else if (parsedJson.clusterInfo && parsedJson.clusterInfo.version && parsedJson.clusterInfo.version.version) {
+      version = parsedJson.clusterInfo.version.version;
     }
     
     // Extract query
@@ -386,7 +399,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       reflections,
       dataScans,
       jsonPlan,
-      snapshotId
+      snapshotId,
+      version
     };
   } catch (error) {
     console.error('Error extracting profile data:', error);

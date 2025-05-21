@@ -282,10 +282,10 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
         {/* Plan Graph Section */}
         <div className="flex flex-row gap-8">
           <div className="flex-1">
-            <OperatorGraph planJson={leftData.jsonPlan} title="Source Plan Graph" />
+            <OperatorGraph planJson={leftData.jsonPlan} title="Source Plan Graph" version={leftData.version} />
           </div>
           <div className="flex-1">
-            <OperatorGraph planJson={rightData.jsonPlan} title="Target Plan Graph" />
+            <OperatorGraph planJson={rightData.jsonPlan} title="Target Plan Graph" version={rightData.version} />
           </div>
         </div>
 
