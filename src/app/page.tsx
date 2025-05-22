@@ -31,6 +31,8 @@ export default function Home() {
   
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [showWordDiff, setShowWordDiff] = useState(true);
+  const [leftOptionsOpen, setLeftOptionsOpen] = useState(false);
+  const [rightOptionsOpen, setRightOptionsOpen] = useState(false);
 
   // Group files by query ID whenever files change
   useEffect(() => {
@@ -305,49 +307,77 @@ export default function Home() {
         {leftData?.nonDefaultOptions?.length > 0 || rightData?.nonDefaultOptions?.length > 0 ? (
           <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border rounded-lg p-4 bg-white shadow-sm">
-              <h3 className="font-medium text-blue-800 mb-3">Source Non-Default Options</h3>
-              {leftData?.nonDefaultOptions?.length > 0 ? (
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="text-left font-semibold text-gray-700 pr-4">Name</th>
-                      <th className="text-left font-semibold text-gray-700">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leftData.nonDefaultOptions.map((opt, idx) => (
-                      <tr key={idx}>
-                        <td className="pr-4 text-gray-800">{opt.name}</td>
-                        <td className="text-gray-800">{String(opt.value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-gray-500 italic">No non-default options found</p>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-blue-800">Source Non-Default Options</h3>
+                <button
+                  className="text-blue-600 hover:underline text-sm"
+                  onClick={() => setLeftOptionsOpen((open) => !open)}
+                  aria-expanded={leftOptionsOpen}
+                  aria-controls="left-non-default-options"
+                >
+                  {leftOptionsOpen ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {leftOptionsOpen && (
+                leftData?.nonDefaultOptions?.length > 0 ? (
+                  <div id="left-non-default-options">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left font-semibold text-gray-700 pr-4">Name</th>
+                          <th className="text-left font-semibold text-gray-700">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leftData.nonDefaultOptions.map((opt, idx) => (
+                          <tr key={idx}>
+                            <td className="pr-4 text-gray-800">{opt.name}</td>
+                            <td className="text-gray-800">{String(opt.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No non-default options found</p>
+                )
               )}
             </div>
             <div className="border rounded-lg p-4 bg-white shadow-sm">
-              <h3 className="font-medium text-blue-800 mb-3">Target Non-Default Options</h3>
-              {rightData?.nonDefaultOptions?.length > 0 ? (
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="text-left font-semibold text-gray-700 pr-4">Name</th>
-                      <th className="text-left font-semibold text-gray-700">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rightData.nonDefaultOptions.map((opt, idx) => (
-                      <tr key={idx}>
-                        <td className="pr-4 text-gray-800">{opt.name}</td>
-                        <td className="text-gray-800">{String(opt.value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-gray-500 italic">No non-default options found</p>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-blue-800">Target Non-Default Options</h3>
+                <button
+                  className="text-blue-600 hover:underline text-sm"
+                  onClick={() => setRightOptionsOpen((open) => !open)}
+                  aria-expanded={rightOptionsOpen}
+                  aria-controls="right-non-default-options"
+                >
+                  {rightOptionsOpen ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {rightOptionsOpen && (
+                rightData?.nonDefaultOptions?.length > 0 ? (
+                  <div id="right-non-default-options">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left font-semibold text-gray-700 pr-4">Name</th>
+                          <th className="text-left font-semibold text-gray-700">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rightData.nonDefaultOptions.map((opt, idx) => (
+                          <tr key={idx}>
+                            <td className="pr-4 text-gray-800">{opt.name}</td>
+                            <td className="text-gray-800">{String(opt.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No non-default options found</p>
+                )
               )}
             </div>
           </div>
