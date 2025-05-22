@@ -43,6 +43,10 @@ export interface ProfileData {
    * The Dremio version from the profile.
    */
   version?: string;
+  /**
+   * The non-default options (support keys and their values) parsed from nonDefaultOptionsJSON.
+   */
+  nonDefaultOptions?: { name: string; value: string | number | boolean }[];
 }
 
 interface DatasetProfile {
@@ -72,7 +76,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     dataScans: [],
     jsonPlan: undefined,
     snapshotId: undefined,
-    version: undefined
+    version: undefined,
+    nonDefaultOptions: []
   };
 
   try {
@@ -389,6 +394,29 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     // Extract jsonPlan if present
     const jsonPlan = parsedJson.jsonPlan ? parsedJson.jsonPlan : undefined;
     
+    // Extract nonDefaultOptionsJSON
+    let nonDefaultOptions: { name: string; value: string | number | boolean }[] = [];
+    if (parsedJson.nonDefaultOptionsJSON) {
+      try {
+        // Parse the JSON string (may be escaped)
+        const optionsArr = JSON.parse(parsedJson.nonDefaultOptionsJSON);
+        if (Array.isArray(optionsArr)) {
+          nonDefaultOptions = optionsArr.map((opt: any) => {
+            let value = opt.num_val;
+            if (value === undefined) value = opt.float_val;
+            if (value === undefined) value = opt.bool_val;
+            if (value === undefined) value = opt.string_val;
+            return {
+              name: opt.name,
+              value
+            };
+          });
+        }
+      } catch (err) {
+        console.error('Failed to parse nonDefaultOptionsJSON:', err);
+      }
+    }
+    
     return {
       query,
       plan,
@@ -400,7 +428,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       dataScans,
       jsonPlan,
       snapshotId,
-      version
+      version,
+      nonDefaultOptions
     };
   } catch (error) {
     console.error('Error extracting profile data:', error);

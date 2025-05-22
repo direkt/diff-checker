@@ -301,6 +301,58 @@ export default function Home() {
           </div>
         )}
 
+        {/* Display non-default options (support keys) for both sides */}
+        {leftData?.nonDefaultOptions?.length > 0 || rightData?.nonDefaultOptions?.length > 0 ? (
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="border rounded-lg p-4 bg-white shadow-sm">
+              <h3 className="font-medium text-blue-800 mb-3">Source Non-Default Options</h3>
+              {leftData?.nonDefaultOptions?.length > 0 ? (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="text-left font-semibold text-gray-700 pr-4">Name</th>
+                      <th className="text-left font-semibold text-gray-700">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leftData.nonDefaultOptions.map((opt, idx) => (
+                      <tr key={idx}>
+                        <td className="pr-4 text-gray-800">{opt.name}</td>
+                        <td className="text-gray-800">{String(opt.value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500 italic">No non-default options found</p>
+              )}
+            </div>
+            <div className="border rounded-lg p-4 bg-white shadow-sm">
+              <h3 className="font-medium text-blue-800 mb-3">Target Non-Default Options</h3>
+              {rightData?.nonDefaultOptions?.length > 0 ? (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="text-left font-semibold text-gray-700 pr-4">Name</th>
+                      <th className="text-left font-semibold text-gray-700">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rightData.nonDefaultOptions.map((opt, idx) => (
+                      <tr key={idx}>
+                        <td className="pr-4 text-gray-800">{opt.name}</td>
+                        <td className="text-gray-800">{String(opt.value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500 italic">No non-default options found</p>
+              )}
+            </div>
+          </div>
+        ) : null}
+
         {/* Display reflections if selected */}
         {selectedSection === 'reflections' && leftData && rightData && (
           <div className="grid grid-cols-2 gap-8 mt-8">
