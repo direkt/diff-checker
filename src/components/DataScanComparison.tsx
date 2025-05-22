@@ -174,7 +174,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
   };
 
   const renderAllScansView = () => (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto text-base">
       <table className="min-w-full border-collapse border">
         <thead>
           <tr className="bg-gray-100">
@@ -193,7 +193,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
               <td className="p-2 border">{scan.tableName}</td>
               <td className="p-2 border">{scan.scanType}</td>
               <td className="p-2 border">{scan.filters.join(', ')}</td>
-              <td className="p-2 border whitespace-pre-wrap text-xs">
+              <td className="p-2 border whitespace-pre-wrap">{/* removed text-xs */}
                 {scan.filterExpression || ''}
               </td>
               <td className="p-2 border">
@@ -208,7 +208,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
   );
 
   const renderTableComparisonView = () => (
-    <div className="space-y-8">
+    <div className="space-y-8 text-base">
       {Array.from(scansByTable.entries()).map(([tableName, scans]) => (
         <div key={tableName} className="border rounded-lg p-4 bg-white">
           <h3 className="text-lg font-medium mb-3 text-blue-800">{tableName}</h3>
@@ -231,7 +231,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
                   <td className="p-2 border">{scan.profileId}</td>
                   <td className="p-2 border">{scan.scanType}</td>
                   <td className="p-2 border">{scan.filters.join(', ')}</td>
-                  <td className="p-2 border whitespace-pre-wrap text-xs">
+                  <td className="p-2 border whitespace-pre-wrap">{/* removed text-xs */}
                     {scan.filterExpression || ''}
                   </td>
                   <td className="p-2 border">
@@ -269,7 +269,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-base">
       <div className="bg-white p-4 rounded-lg shadow-sm">
         <div className="flex flex-wrap gap-4 mb-4">
           <div>

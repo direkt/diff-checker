@@ -63,7 +63,7 @@ export const OperatorGraph: React.FC<OperatorGraphProps> = ({ planJson, title, v
   return (
     <div>
       {version && (
-        <div className="mb-2 text-sm font-medium text-gray-600">
+        <div className="mb-2 text-base font-medium text-gray-600">
           Version: {version}
         </div>
       )}

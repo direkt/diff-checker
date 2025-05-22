@@ -468,12 +468,14 @@ export default function Home() {
             <p className="text-lg">Processing files...</p>
           </div>
         ) : (
-          <DiffViewer
-            leftData={leftData}
-            rightData={rightData}
-            selectedSection={selectedSection}
-            showWordDiff={showWordDiff}
-          />
+          <div className="text-base">
+            <DiffViewer
+              leftData={leftData}
+              rightData={rightData}
+              selectedSection={selectedSection}
+              showWordDiff={showWordDiff}
+            />
+          </div>
         )}
       </div>
     </div>

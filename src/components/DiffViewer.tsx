@@ -121,7 +121,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
 
   if (!leftData || !rightData) {
     return (
-      <div className="p-4 text-center text-gray-500">
+      <div className="p-4 text-center text-gray-500 text-base">
         Please upload files on both sides to view differences
       </div>
     );
@@ -157,7 +157,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
 
   // Special case for data scans
   if (selectedSection === 'dataScans') {
-    return <DataScanComparison leftData={leftData} rightData={rightData} />;
+    return <div className="text-base"><DataScanComparison leftData={leftData} rightData={rightData} /></div>;
   }
 
   // For non-plan sections, use the standard diff viewer
@@ -166,7 +166,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
     const rightContent = getContentForSection(rightData, selectedSection);
 
     return (
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-hidden text-base">
         <ReactDiffViewer
           oldValue={leftContent}
           newValue={rightContent}
@@ -176,12 +176,12 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
           disableWordDiff={!showWordDiff}
           leftTitle="Source"
           rightTitle="Target"
-          styles={customStyles}
+          styles={{...customStyles, contentText: {fontSize: '1rem'}}}
           compareMethod={DiffMethod.WORDS}
           renderContent={(str: string): ReactElement => {
             if (selectedSection === 'vdsDetails') {
               return (
-                <SyntaxHighlighter language="sql" style={docco}>
+                <SyntaxHighlighter language="sql" style={docco} customStyle={{fontSize: '1rem'}}>
                   {str}
                 </SyntaxHighlighter>
               );
@@ -196,7 +196,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
   // For plan section, render each operator in its own box
   if (selectedSection === 'plan' && leftData?.jsonPlan && rightData?.jsonPlan) {
     return (
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-8 text-base">
         {/* Snapshot IDs differ warning - now above the snapshot IDs */}
         {leftData.snapshotId && rightData.snapshotId && leftData.snapshotId !== rightData.snapshotId && (
           <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
@@ -296,7 +296,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               {planOperators.length} operator type{planOperators.length !== 1 ? 's' : ''} found
             </div>
             {planOperators.map((operator) => (
-              <div key={operator.operatorType} className="border rounded-lg overflow-hidden bg-white">
+              <div key={operator.operatorType} className="border rounded-lg overflow-hidden bg-white text-base">
                 <div className="bg-blue-100 p-3 font-medium text-blue-800">
                   Operator Type: {operator.operatorType}
                   {operator.leftOperatorNumber && (
@@ -306,7 +306,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
                     <span className="ml-4 text-xs text-gray-500">Target operator: {operator.rightOperatorNumber}</span>
                   )}
                 </div>
-                <div className="p-4">
+                <div className="p-4 text-base">
                   <ReactDiffViewer
                     oldValue={operator.leftContent}
                     newValue={operator.rightContent}
@@ -317,7 +317,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
                     leftTitle="Source"
                     rightTitle="Target"
                     compareMethod={DiffMethod.WORDS}
-                    styles={customStyles}
+                    styles={{...customStyles, contentText: {fontSize: '1rem'}}}
                   />
                 </div>
               </div>
@@ -334,7 +334,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
         {planOperators.length} operator type{planOperators.length !== 1 ? 's' : ''} found
       </div>
       {planOperators.map((operator) => (
-        <div key={operator.operatorType} className="border rounded-lg overflow-hidden bg-white">
+        <div key={operator.operatorType} className="border rounded-lg overflow-hidden bg-white text-base">
           <div className="bg-blue-100 p-3 font-medium text-blue-800">
             Operator Type: {operator.operatorType}
             {operator.leftOperatorNumber && (
@@ -344,7 +344,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <span className="ml-4 text-xs text-gray-500">Target operator: {operator.rightOperatorNumber}</span>
             )}
           </div>
-          <div className="p-4">
+          <div className="p-4 text-base">
             <ReactDiffViewer
               oldValue={operator.leftContent}
               newValue={operator.rightContent}
@@ -355,7 +355,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               leftTitle="Source"
               rightTitle="Target"
               compareMethod={DiffMethod.WORDS}
-              styles={customStyles}
+              styles={{...customStyles, contentText: {fontSize: '1rem'}}}
             />
           </div>
         </div>
