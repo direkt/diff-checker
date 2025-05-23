@@ -5,6 +5,7 @@ import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql';
 import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ProfileData } from '@/utils/jqUtils';
 import DataScanComparison from './DataScanComparison';
+import QueryPerformanceAnalysis from './QueryPerformanceAnalysis';
 
 SyntaxHighlighter.registerLanguage('sql', sql);
 
@@ -205,6 +206,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
         return [...chosenReflections, ...consideredReflections].join('\n') || '';
       case 'dataScans':
         return '';
+      case 'performanceAnalysis':
+        return '';
       default:
         return '';
     }
@@ -216,6 +219,63 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
       <div className="text-base">
         {renderViewModeToggle()}
         <DataScanComparison leftData={leftData} rightData={rightData} viewMode={viewMode} />
+      </div>
+    );
+  }
+
+  // Special case for performance analysis
+  if (selectedSection === 'performanceAnalysis') {
+    return (
+      <div className="text-base">
+        {renderViewModeToggle()}
+        {(leftData.performanceMetrics || rightData.performanceMetrics) ? (
+          <div className="space-y-4">
+            {viewMode === 'split' && leftData.performanceMetrics && rightData.performanceMetrics && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <QueryPerformanceAnalysis 
+                  performanceMetrics={leftData.performanceMetrics} 
+                  title="Source Query Performance Analysis"
+                />
+                <QueryPerformanceAnalysis 
+                  performanceMetrics={rightData.performanceMetrics} 
+                  title="Target Query Performance Analysis"
+                />
+              </div>
+            )}
+            
+            {viewMode === 'source-only' && leftData.performanceMetrics && (
+              <QueryPerformanceAnalysis 
+                performanceMetrics={leftData.performanceMetrics} 
+                title="Source Query Performance Analysis"
+              />
+            )}
+            
+            {viewMode === 'target-only' && rightData.performanceMetrics && (
+              <QueryPerformanceAnalysis 
+                performanceMetrics={rightData.performanceMetrics} 
+                title="Target Query Performance Analysis"
+              />
+            )}
+            
+            {viewMode === 'split' && leftData.performanceMetrics && !rightData.performanceMetrics && (
+              <QueryPerformanceAnalysis 
+                performanceMetrics={leftData.performanceMetrics} 
+                title="Source Query Performance Analysis"
+              />
+            )}
+            
+            {viewMode === 'split' && !leftData.performanceMetrics && rightData.performanceMetrics && (
+              <QueryPerformanceAnalysis 
+                performanceMetrics={rightData.performanceMetrics} 
+                title="Target Query Performance Analysis"
+              />
+            )}
+          </div>
+        ) : (
+          <div className="p-4 text-center text-gray-500">
+            No performance analysis data available. Performance metrics are extracted from the query profile data.
+          </div>
+        )}
       </div>
     );
   }
@@ -410,6 +470,38 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
             </div>
           </div>
         </div>
+
+        {/* Query Performance Analysis Section */}
+        {(leftData.performanceMetrics || rightData.performanceMetrics) && (
+          <div className="space-y-4">
+            {viewMode === 'split' && leftData.performanceMetrics && rightData.performanceMetrics && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <QueryPerformanceAnalysis 
+                  performanceMetrics={leftData.performanceMetrics} 
+                  title="Source Query Performance Analysis"
+                />
+                <QueryPerformanceAnalysis 
+                  performanceMetrics={rightData.performanceMetrics} 
+                  title="Target Query Performance Analysis"
+                />
+              </div>
+            )}
+            
+            {viewMode === 'source-only' && leftData.performanceMetrics && (
+              <QueryPerformanceAnalysis 
+                performanceMetrics={leftData.performanceMetrics} 
+                title="Source Query Performance Analysis"
+              />
+            )}
+            
+            {viewMode === 'target-only' && rightData.performanceMetrics && (
+              <QueryPerformanceAnalysis 
+                performanceMetrics={rightData.performanceMetrics} 
+                title="Target Query Performance Analysis"
+              />
+            )}
+          </div>
+        )}
 
         {/* Plan Operators Section */}
         <div>

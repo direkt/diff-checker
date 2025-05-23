@@ -281,6 +281,7 @@ export default function Home() {
             <option value="planOperators">Plan Operators</option>
             <option value="reflections">Reflections</option>
             <option value="dataScans">Data Scans</option>
+            <option value="performanceAnalysis">Query Performance Analysis</option>
           </select>
         </div>
 

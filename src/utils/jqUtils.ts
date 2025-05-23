@@ -8,6 +8,71 @@ export interface DataScan {
   table_function_filter?: string;
 }
 
+export interface PerformanceMetrics {
+  totalQueryTimeMs: number;
+  planningTimeMs: number;
+  executionTimeMs: number;
+  queryInfo: {
+    queryId: string;
+    user: string;
+    dremioVersion?: string;
+  };
+  topOperators: {
+    operatorId: number;
+    operatorType: string;
+    operatorName: string;
+    setupMs: number;
+    processMs: number;
+    waitMs: number;
+    totalMs: number;
+    fragmentId: string;
+    inputRecords: number;
+    outputRecords: number;
+    inputBytes: number;
+    outputBytes: number;
+    peakMemoryMB: number;
+    selectivity?: number;
+    throughputRecordsPerSec?: number;
+    operatorMetrics?: { [key: string]: number };
+  }[];
+  phases: {
+    phaseName: string;
+    durationMs: number;
+  }[];
+  bottlenecks: {
+    type: 'I/O' | 'CPU' | 'Memory' | 'Selectivity';
+    description: string;
+    severity: 'High' | 'Medium' | 'Low';
+    operatorId?: number;
+    recommendation: string;
+    details?: string;
+  }[];
+  dataVolumeStats: {
+    totalRecordsProcessed: number;
+    totalInputBytes: number;
+    totalOutputBytes: number;
+    totalDataSizeGB: number;
+    avgThroughputRecordsPerSec: number;
+    compressionRatio?: number;
+  };
+  operatorStats: {
+    totalOperators: number;
+    totalOperatorTimeMs: number;
+    maxOperatorTimeMs: number;
+    avgOperatorTimeMs: number;
+  };
+  longestRunningOperator?: {
+    operatorId: number;
+    operatorName: string;
+    fragmentId: string;
+    totalMs: number;
+  };
+  longestRunningPhase?: {
+    phaseName: string;
+    durationMs: number;
+  };
+}
+
 export interface ProfileData {
   query: string;
   plan: string;
@@ -47,6 +112,10 @@ export interface ProfileData {
    * The non-default options (support keys and their values) parsed from nonDefaultOptionsJSON.
    */
   nonDefaultOptions?: { name: string; value: string | number | boolean }[];
+  /**
+   * Performance metrics extracted from the profile for analysis.
+   */
+  performanceMetrics?: PerformanceMetrics;
 }
 
 interface DatasetProfile {
@@ -77,7 +146,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     jsonPlan: undefined,
     snapshotId: undefined,
     version: undefined,
-    nonDefaultOptions: []
+    nonDefaultOptions: [],
+    performanceMetrics: undefined
   };
 
   try {
@@ -417,6 +487,9 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       }
     }
     
+    // Extract performance metrics if present
+    const performanceMetrics: PerformanceMetrics | undefined = extractPerformanceMetrics(parsedJson);
+    
     return {
       query,
       plan,
@@ -429,11 +502,304 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       jsonPlan,
       snapshotId,
       version,
-      nonDefaultOptions
+      nonDefaultOptions,
+      performanceMetrics
     };
   } catch (error) {
     console.error('Error extracting profile data:', error);
     console.log('Returning default empty data structure');
     return defaultData;
   }
+}
+
+function extractPerformanceMetrics(parsedJson: any): PerformanceMetrics | undefined {
+  try {
+    // Extract basic timing information
+    const startTime = parsedJson.start || 0;
+    const endTime = parsedJson.end || 0;
+    const planningStart = parsedJson.planningStart || 0;
+    const planningEnd = parsedJson.planningEnd || 0;
+    
+    const totalQueryTimeMs = endTime - startTime;
+    const planningTimeMs = planningEnd - planningStart;
+    const executionTimeMs = totalQueryTimeMs - planningTimeMs;
+
+    // Extract query info
+    const queryInfo = {
+      queryId: parsedJson.id?.part1 || 'Unknown',
+      user: parsedJson.user || 'Unknown',
+      dremioVersion: parsedJson.dremioVersion || parsedJson.clusterInfo?.version?.version
+    };
+
+    // Extract phases
+    const phases: PerformanceMetrics['phases'] = [];
+    const planPhases = parsedJson.planPhases || [];
+    
+    for (const phase of planPhases) {
+      phases.push({
+        phaseName: phase.phaseName || 'Unknown',
+        durationMs: phase.durationMillis || 0
+      });
+    }
+
+    // Extract detailed operator performance data
+    const operators: any[] = [];
+    const fragmentProfiles = parsedJson.fragmentProfile || [];
+    
+    for (const fragment of fragmentProfiles) {
+      const majorFragmentId = fragment.majorFragmentId || 0;
+      const minorFragments = fragment.minorFragmentProfile || [];
+      
+      for (const minorFragment of minorFragments) {
+        const minorFragmentId = minorFragment.minorFragmentId || 0;
+        const operatorProfiles = minorFragment.operatorProfile || [];
+        
+        for (const op of operatorProfiles) {
+          const operatorId = op.operatorId || 0;
+          const operatorType = op.operatorType || 0;
+          const setupNanos = op.setupNanos || 0;
+          const processNanos = op.processNanos || 0;
+          const waitNanos = op.waitNanos || 0;
+          
+          // Extract I/O metrics
+          const inputProfiles = op.inputProfile || [];
+          const totalInputRecords = inputProfiles.reduce((sum: number, ip: any) => sum + (ip.records || 0), 0);
+          const totalInputBytes = inputProfiles.reduce((sum: number, ip: any) => sum + (ip.size || 0), 0);
+          const outputRecords = op.outputRecords || 0;
+          const outputBytes = op.outputBytes || 0;
+          const peakMemory = op.peakLocalMemoryAllocated || 0;
+          
+          // Extract operator-specific metrics
+          const operatorMetrics: { [key: string]: number } = {};
+          const metrics = op.metric || [];
+          for (const metric of metrics) {
+            const metricId = metric.metricId || 0;
+            if (metric.longValue !== undefined) {
+              operatorMetrics[`metric_${metricId}`] = metric.longValue;
+            } else if (metric.doubleValue !== undefined) {
+              operatorMetrics[`metric_${metricId}`] = metric.doubleValue;
+            }
+          }
+          
+          // Calculate selectivity if applicable
+          let selectivity: number | undefined;
+          if (totalInputRecords > 0 && outputRecords >= 0) {
+            selectivity = outputRecords / totalInputRecords;
+          }
+          
+          // Calculate throughput
+          let throughputRecordsPerSec: number | undefined;
+          if (processNanos > 0 && totalInputRecords > 0) {
+            throughputRecordsPerSec = Math.round(totalInputRecords / (processNanos / 1_000_000_000));
+          }
+          
+          const totalMs = Math.round((setupNanos + processNanos + waitNanos) / 1_000_000);
+          
+          operators.push({
+            operatorId,
+            operatorType: getOperatorTypeName(operatorType),
+            operatorName: getOperatorTypeName(operatorType),
+            setupMs: Math.round(setupNanos / 1_000_000),
+            processMs: Math.round(processNanos / 1_000_000),
+            waitMs: Math.round(waitNanos / 1_000_000),
+            totalMs,
+            fragmentId: `${majorFragmentId}-${minorFragmentId}`,
+            inputRecords: totalInputRecords,
+            outputRecords,
+            inputBytes: totalInputBytes,
+            outputBytes,
+            peakMemoryMB: Math.round(peakMemory / (1024 * 1024)),
+            selectivity,
+            throughputRecordsPerSec,
+            operatorMetrics: Object.keys(operatorMetrics).length > 0 ? operatorMetrics : undefined,
+            // Store raw nanos for calculations
+            _setupNanos: setupNanos,
+            _processNanos: processNanos,
+            _waitNanos: waitNanos,
+            _totalNanos: setupNanos + processNanos + waitNanos
+          });
+        }
+      }
+    }
+
+    // Sort operators by total time and get top 10
+    const topOperators = operators
+      .sort((a, b) => b.totalMs - a.totalMs)
+      .slice(0, 10)
+      .map(op => {
+        // Remove internal fields before returning
+        const { _setupNanos, _processNanos, _waitNanos, _totalNanos, ...cleanOp } = op;
+        return cleanOp;
+      });
+
+    // Calculate operator statistics
+    const operatorStats = {
+      totalOperators: operators.length,
+      totalOperatorTimeMs: operators.reduce((sum, op) => sum + op.totalMs, 0),
+      maxOperatorTimeMs: operators.length > 0 ? Math.max(...operators.map(op => op.totalMs)) : 0,
+      avgOperatorTimeMs: operators.length > 0 ? Math.round(operators.reduce((sum, op) => sum + op.totalMs, 0) / operators.length) : 0
+    };
+
+    // Find longest running operator and phase
+    const longestRunningOperator = operators.length > 0 ? 
+      (() => {
+        const longest = operators.reduce((max, op) => op.totalMs > max.totalMs ? op : max);
+        return {
+          operatorId: longest.operatorId,
+          operatorName: longest.operatorName,
+          fragmentId: longest.fragmentId,
+          totalMs: longest.totalMs
+        };
+      })() : undefined;
+
+    const longestRunningPhase = phases.length > 0 ?
+      phases.reduce((max, phase) => phase.durationMs > max.durationMs ? phase : max) : undefined;
+
+    // Comprehensive bottleneck analysis
+    const bottlenecks: PerformanceMetrics['bottlenecks'] = [];
+    
+    // 1. I/O Bottlenecks (high wait times)
+    const highWaitOperators = operators.filter(op => 
+      op._waitNanos > op._processNanos && op._waitNanos > 1_000_000 && op._totalNanos > 0
+    ).sort((a, b) => b._waitNanos - a._waitNanos);
+    
+    if (highWaitOperators.length > 0) {
+      const topWaitOp = highWaitOperators[0];
+      const waitPercentage = Math.round((topWaitOp._waitNanos / topWaitOp._totalNanos) * 100);
+      bottlenecks.push({
+        type: 'I/O',
+        description: `High I/O wait time detected in Op ${topWaitOp.operatorId} (${topWaitOp.operatorName})`,
+        severity: waitPercentage > 50 ? 'High' : waitPercentage > 25 ? 'Medium' : 'Low',
+        operatorId: topWaitOp.operatorId,
+        recommendation: 'Consider optimizing storage access, partitioning strategy, or predicate pushdown',
+        details: `${waitPercentage}% of execution time spent waiting (${formatTime(topWaitOp._waitNanos)})`
+      });
+    }
+
+    // 2. Selectivity Issues (low selectivity filters)
+    const lowSelectivityOperators = operators.filter(op => 
+      op.selectivity !== undefined && op.selectivity < 0.01 && op.inputRecords > 1000
+    ).sort((a, b) => (a.selectivity || 0) - (b.selectivity || 0));
+    
+    if (lowSelectivityOperators.length > 0) {
+      const worstSelectivity = lowSelectivityOperators[0];
+      const selectivityPct = (worstSelectivity.selectivity! * 100).toFixed(3);
+      bottlenecks.push({
+        type: 'Selectivity',
+        description: `Poor filter selectivity in Op ${worstSelectivity.operatorId} (${worstSelectivity.operatorName})`,
+        severity: worstSelectivity.selectivity! < 0.001 ? 'High' : 'Medium',
+        operatorId: worstSelectivity.operatorId,
+        recommendation: 'Improve predicate pushdown, add better indexes, or optimize query filters',
+        details: `${selectivityPct}% selectivity (${worstSelectivity.inputRecords.toLocaleString()} → ${worstSelectivity.outputRecords.toLocaleString()} records)`
+      });
+    }
+
+    // 3. Memory Bottlenecks
+    const highMemoryOperators = operators.filter(op => op.peakMemoryMB > 100)
+      .sort((a, b) => b.peakMemoryMB - a.peakMemoryMB);
+    
+    if (highMemoryOperators.length > 0) {
+      const topMemoryOp = highMemoryOperators[0];
+      bottlenecks.push({
+        type: 'Memory',
+        description: `High memory usage in Op ${topMemoryOp.operatorId} (${topMemoryOp.operatorName})`,
+        severity: topMemoryOp.peakMemoryMB > 1000 ? 'High' : topMemoryOp.peakMemoryMB > 500 ? 'Medium' : 'Low',
+        operatorId: topMemoryOp.operatorId,
+        recommendation: 'Consider increasing memory allocation or optimizing data processing',
+        details: `${topMemoryOp.peakMemoryMB}MB peak memory allocation`
+      });
+    }
+
+    // 4. High Record Volume Analysis
+    const highRecordOperators = operators.filter(op => op.inputRecords > 1_000_000)
+      .sort((a, b) => b.inputRecords - a.inputRecords);
+    
+    if (highRecordOperators.length > 0) {
+      const topRecordOp = highRecordOperators[0];
+      const throughput = topRecordOp.throughputRecordsPerSec || 0;
+      if (throughput < 100000) { // Less than 100K records/sec might indicate CPU bottleneck
+        bottlenecks.push({
+          type: 'CPU',
+          description: `Low throughput in high-volume Op ${topRecordOp.operatorId} (${topRecordOp.operatorName})`,
+          severity: throughput < 10000 ? 'High' : throughput < 50000 ? 'Medium' : 'Low',
+          operatorId: topRecordOp.operatorId,
+          recommendation: 'Consider query optimization, better parallelization, or more CPU resources',
+          details: `Processing ${formatRecords(topRecordOp.inputRecords)} records at ${throughput.toLocaleString()} rec/sec`
+        });
+      }
+    }
+
+    // Calculate comprehensive data volume statistics
+    const totalRecordsProcessed = operators.reduce((sum, op) => sum + op.inputRecords, 0);
+    const totalInputBytes = operators.reduce((sum, op) => sum + op.inputBytes, 0);
+    const totalOutputBytes = operators.reduce((sum, op) => sum + op.outputBytes, 0);
+    const totalDataSizeGB = totalInputBytes / (1024 * 1024 * 1024);
+    const avgThroughputRecordsPerSec = executionTimeMs > 0 ? Math.round(totalRecordsProcessed / (executionTimeMs / 1000)) : 0;
+    
+    // Calculate compression ratio if we have both input and output bytes
+    let compressionRatio: number | undefined;
+    if (totalInputBytes > 0 && totalOutputBytes > 0) {
+      compressionRatio = totalInputBytes / totalOutputBytes;
+    }
+
+    return {
+      totalQueryTimeMs,
+      planningTimeMs,
+      executionTimeMs,
+      queryInfo,
+      topOperators,
+      phases: phases.sort((a, b) => b.durationMs - a.durationMs), // Sort phases by duration
+      bottlenecks,
+      dataVolumeStats: {
+        totalRecordsProcessed,
+        totalInputBytes,
+        totalOutputBytes,
+        totalDataSizeGB,
+        avgThroughputRecordsPerSec,
+        compressionRatio
+      },
+      operatorStats,
+      longestRunningOperator,
+      longestRunningPhase
+    };
+  } catch (error) {
+    console.error('Error extracting performance metrics:', error);
+    return undefined;
+  }
+}
+
+// Helper function to format records (similar to Python script)
+function formatRecords(records: number): string {
+  if (records < 1000) return records.toString();
+  if (records < 1_000_000) return `${(records / 1000).toFixed(1)}K`;
+  if (records < 1_000_000_000) return `${(records / 1_000_000).toFixed(1)}M`;
+  return `${(records / 1_000_000_000).toFixed(1)}B`;
+}
+
+// Helper function to format time (similar to Python script)
+function formatTime(nanos: number): string {
+  if (nanos < 1000) return `${nanos}ns`;
+  if (nanos < 1_000_000) return `${(nanos / 1000).toFixed(2)}μs`;
+  if (nanos < 1_000_000_000) return `${(nanos / 1_000_000).toFixed(2)}ms`;
+  return `${(nanos / 1_000_000_000).toFixed(2)}s`;
+}
+
+function getOperatorTypeName(operatorType: number): string {
+  // Map operator type numbers to names based on Dremio operator types
+  const operatorTypeMap: { [key: number]: string } = {
+    1: 'Screen',
+    2: 'Project',
+    3: 'Filter',
+    4: 'Union',
+    5: 'HashJoin',
+    6: 'MergeJoin',
+    7: 'HashAggregate',
+    8: 'StreamingAggregate',
+    9: 'Sort',
+    10: 'Limit',
+    53: 'TableFunction',
+    // Add more mappings as needed
+  };
+  
+  return operatorTypeMap[operatorType] || `Operator_${operatorType}`;
 }
