@@ -31,8 +31,7 @@ export default function Home() {
   
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [showWordDiff, setShowWordDiff] = useState(true);
-  const [leftOptionsOpen, setLeftOptionsOpen] = useState(false);
-  const [rightOptionsOpen, setRightOptionsOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false); // Single state for both options sections
 
   // Group files by query ID whenever files change
   useEffect(() => {
@@ -311,14 +310,14 @@ export default function Home() {
                 <h3 className="font-medium text-blue-800">Source Non-Default Options</h3>
                 <button
                   className="text-blue-600 hover:underline text-sm"
-                  onClick={() => setLeftOptionsOpen((open) => !open)}
-                  aria-expanded={leftOptionsOpen}
+                  onClick={() => setOptionsOpen((open) => !open)}
+                  aria-expanded={optionsOpen}
                   aria-controls="left-non-default-options"
                 >
-                  {leftOptionsOpen ? 'Hide' : 'Show'}
+                  {optionsOpen ? 'Hide' : 'Show'}
                 </button>
               </div>
-              {leftOptionsOpen && (
+              {optionsOpen && (
                 (leftData?.nonDefaultOptions?.length ?? 0) > 0 ? (
                   <div id="left-non-default-options">
                     <table className="min-w-full text-sm">
@@ -348,14 +347,14 @@ export default function Home() {
                 <h3 className="font-medium text-blue-800">Target Non-Default Options</h3>
                 <button
                   className="text-blue-600 hover:underline text-sm"
-                  onClick={() => setRightOptionsOpen((open) => !open)}
-                  aria-expanded={rightOptionsOpen}
+                  onClick={() => setOptionsOpen((open) => !open)}
+                  aria-expanded={optionsOpen}
                   aria-controls="right-non-default-options"
                 >
-                  {rightOptionsOpen ? 'Hide' : 'Show'}
+                  {optionsOpen ? 'Hide' : 'Show'}
                 </button>
               </div>
-              {rightOptionsOpen && (
+              {optionsOpen && (
                 (rightData?.nonDefaultOptions?.length ?? 0) > 0 ? (
                   <div id="right-non-default-options">
                     <table className="min-w-full text-sm">
