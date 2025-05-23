@@ -20,6 +20,7 @@ type ViewMode = 'split' | 'source-only' | 'target-only';
 
 const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSection, showWordDiff = true }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
+  const [performanceAnalysisCollapsed, setPerformanceAnalysisCollapsed] = useState(true);
 
   // Custom styles to improve word-level diffing
   const customStyles = {
@@ -235,10 +236,14 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
                 <QueryPerformanceAnalysis 
                   performanceMetrics={leftData.performanceMetrics} 
                   title="Source Query Performance Analysis"
+                  isCollapsed={performanceAnalysisCollapsed}
+                  onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
                 />
                 <QueryPerformanceAnalysis 
                   performanceMetrics={rightData.performanceMetrics} 
                   title="Target Query Performance Analysis"
+                  isCollapsed={performanceAnalysisCollapsed}
+                  onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
                 />
               </div>
             )}
@@ -247,6 +252,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <QueryPerformanceAnalysis 
                 performanceMetrics={leftData.performanceMetrics} 
                 title="Source Query Performance Analysis"
+                isCollapsed={performanceAnalysisCollapsed}
+                onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
               />
             )}
             
@@ -254,6 +261,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <QueryPerformanceAnalysis 
                 performanceMetrics={rightData.performanceMetrics} 
                 title="Target Query Performance Analysis"
+                isCollapsed={performanceAnalysisCollapsed}
+                onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
               />
             )}
             
@@ -261,6 +270,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <QueryPerformanceAnalysis 
                 performanceMetrics={leftData.performanceMetrics} 
                 title="Source Query Performance Analysis"
+                isCollapsed={performanceAnalysisCollapsed}
+                onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
               />
             )}
             
@@ -268,6 +279,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <QueryPerformanceAnalysis 
                 performanceMetrics={rightData.performanceMetrics} 
                 title="Target Query Performance Analysis"
+                isCollapsed={performanceAnalysisCollapsed}
+                onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
               />
             )}
           </div>
@@ -479,10 +492,14 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
                 <QueryPerformanceAnalysis 
                   performanceMetrics={leftData.performanceMetrics} 
                   title="Source Query Performance Analysis"
+                  isCollapsed={performanceAnalysisCollapsed}
+                  onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
                 />
                 <QueryPerformanceAnalysis 
                   performanceMetrics={rightData.performanceMetrics} 
                   title="Target Query Performance Analysis"
+                  isCollapsed={performanceAnalysisCollapsed}
+                  onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
                 />
               </div>
             )}
@@ -491,6 +508,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <QueryPerformanceAnalysis 
                 performanceMetrics={leftData.performanceMetrics} 
                 title="Source Query Performance Analysis"
+                isCollapsed={performanceAnalysisCollapsed}
+                onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
               />
             )}
             
@@ -498,6 +517,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <QueryPerformanceAnalysis 
                 performanceMetrics={rightData.performanceMetrics} 
                 title="Target Query Performance Analysis"
+                isCollapsed={performanceAnalysisCollapsed}
+                onToggleCollapsed={() => setPerformanceAnalysisCollapsed(!performanceAnalysisCollapsed)}
               />
             )}
           </div>

@@ -4,13 +4,28 @@ import { PerformanceMetrics } from '@/utils/jqUtils';
 interface QueryPerformanceAnalysisProps {
   performanceMetrics: PerformanceMetrics;
   title?: string;
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 const QueryPerformanceAnalysis: React.FC<QueryPerformanceAnalysisProps> = ({ 
   performanceMetrics, 
-  title = "Query Performance Analysis" 
+  title = "Query Performance Analysis",
+  isCollapsed: externalIsCollapsed,
+  onToggleCollapsed
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(true);
+  
+  // Use external state if provided, otherwise use internal state
+  const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : internalIsCollapsed;
+  
+  const handleToggle = () => {
+    if (onToggleCollapsed) {
+      onToggleCollapsed();
+    } else {
+      setInternalIsCollapsed(!internalIsCollapsed);
+    }
+  };
 
   const formatTime = (ms: number): string => {
     if (ms < 1000) return `${ms}ms`;
@@ -58,7 +73,7 @@ const QueryPerformanceAnalysis: React.FC<QueryPerformanceAnalysisProps> = ({
     <div className="border rounded-lg overflow-hidden bg-white">
       <div 
         className="bg-blue-100 p-3 font-medium text-blue-800 cursor-pointer hover:bg-blue-200 transition-colors flex items-center justify-between"
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={handleToggle}
       >
         <span>{title}</span>
         <span className="text-lg">
