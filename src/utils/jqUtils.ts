@@ -1,3 +1,5 @@
+import { validateQueryPhases, QueryPhaseValidationResult } from './queryPhaseValidator';
+
 export interface DataScan {
   table_name: string;
   scan_type: string;
@@ -99,7 +101,7 @@ export interface ProfileData {
    * This includes table names, scan types, and metrics.
    */
   dataScans: DataScan[];
-  jsonPlan?: any;
+  jsonPlan?: Record<string, unknown>;
   /**
    * The snapshot ID extracted from the plan string, if present.
    */
@@ -116,6 +118,10 @@ export interface ProfileData {
    * Performance metrics extracted from the profile for analysis.
    */
   performanceMetrics?: PerformanceMetrics;
+  /**
+   * Query phase validation results to ensure phases are correct and complete.
+   */
+  queryPhaseValidation?: QueryPhaseValidationResult;
 }
 
 interface DatasetProfile {
@@ -147,7 +153,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     snapshotId: undefined,
     version: undefined,
     nonDefaultOptions: [],
-    performanceMetrics: undefined
+    performanceMetrics: undefined,
+    queryPhaseValidation: undefined
   };
 
   try {
@@ -301,7 +308,7 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
           console.log(`Found ${parsedJson.accelerationProfile.layoutProfiles.length} layout profiles`);
           
           // Process each layout profile and extract reflection info
-          parsedJson.accelerationProfile.layoutProfiles.forEach((layout: any, index: number) => {
+          parsedJson.accelerationProfile.layoutProfiles.forEach((layout: Record<string, unknown>, index: number) => {
             try {
               console.log(`Layout ${index + 1} fields:`, Object.keys(layout));
               
@@ -328,7 +335,7 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
               }
               
               // Add substitution info if available
-              if (layout.numSubstitutions && layout.numSubstitutions > 0) {
+              if (layout.numSubstitutions && (layout.numSubstitutions as number) > 0) {
                 console.log(`Layout ${index + 1} substitutions: ${layout.numSubstitutions}`);
                 reflections.chosen.push(`Substitutions used: ${layout.numSubstitutions}`);
               }
@@ -350,32 +357,34 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       dataScans.push(...parsedJson.dataScans);
     } else if (parsedJson.tableScanProfiles && Array.isArray(parsedJson.tableScanProfiles)) {
       // Alternative format
-      parsedJson.tableScanProfiles.forEach((scan: any) => {
+      parsedJson.tableScanProfiles.forEach((scan: Record<string, unknown>) => {
         dataScans.push({
-          table_name: scan.tableName || scan.table_name || 'Unknown',
-          scan_type: scan.scanType || scan.scan_type || 'Unknown',
-          filters: scan.filters || [],
-          timestamp: scan.timestamp || '',
-          rows_scanned: scan.rowsScanned || scan.rows_scanned || 0,
-          duration_ms: scan.durationMs || scan.duration_ms || 0
+          table_name: (scan.tableName as string) || (scan.table_name as string) || 'Unknown',
+          scan_type: (scan.scanType as string) || (scan.scan_type as string) || 'Unknown',
+          filters: (scan.filters as string[]) || [],
+          timestamp: (scan.timestamp as string) || '',
+          rows_scanned: (scan.rowsScanned as number) || (scan.rows_scanned as number) || 0,
+          duration_ms: (scan.durationMs as number) || (scan.duration_ms as number) || 0,
+          table_function_filter: (scan.tableFunctionFilter as string) || (scan.table_function_filter as string)
         });
       });
     }
     
     // Also look for scans in execution events, which might contain table scan info
     if (parsedJson.executionEvents && Array.isArray(parsedJson.executionEvents)) {
-      parsedJson.executionEvents.forEach((event: any) => {
+      parsedJson.executionEvents.forEach((event: Record<string, unknown>) => {
         if (event.type === 'TABLE_SCAN' || event.eventType === 'TABLE_SCAN' || 
             (event.type === 'TABLE_FUNCTION' || event.eventType === 'TABLE_FUNCTION')) {
           dataScans.push({
-            table_name: event.tableName || event.table || 'Unknown',
-            scan_type: event.scanType || event.scan_type || 
-                      (event.attributes && event.attributes.includes('Type=[DATA_FILE_SCAN]') ? 'DATA_FILE_SCAN' : 
+            table_name: (event.tableName as string) || (event.table as string) || 'Unknown',
+            scan_type: (event.scanType as string) || (event.scan_type as string) || 
+                      ((event.attributes as string[])?.includes('Type=[DATA_FILE_SCAN]') ? 'DATA_FILE_SCAN' :
                        event.type === 'TABLE_FUNCTION' ? 'TABLE_FUNCTION' : 'Unknown'),
-            filters: event.filters || [],
-            timestamp: event.timestamp || '',
-            rows_scanned: event.rowCount || event.rowsScanned || 0,
-            duration_ms: event.durationMs || event.duration_ms || 0
+            filters: (event.filters as string[]) || [],
+            timestamp: (event.timestamp as string) || (event.time as string) || '',
+            rows_scanned: (event.rowsScanned as number) || (event.rows_scanned as number) || 0,
+            duration_ms: (event.durationMs as number) || (event.duration_ms as number) || 0,
+            table_function_filter: (event.tableFunctionFilter as string) || (event.table_function_filter as string)
           });
         }
       });
@@ -471,14 +480,14 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
         // Parse the JSON string (may be escaped)
         const optionsArr = JSON.parse(parsedJson.nonDefaultOptionsJSON);
         if (Array.isArray(optionsArr)) {
-          nonDefaultOptions = optionsArr.map((opt: any) => {
+          nonDefaultOptions = optionsArr.map((opt: Record<string, unknown>) => {
             let value = opt.num_val;
             if (value === undefined) value = opt.float_val;
             if (value === undefined) value = opt.bool_val;
             if (value === undefined) value = opt.string_val;
             return {
-              name: opt.name,
-              value
+              name: (opt.name as string) || 'Unknown',
+              value: (value as string | number | boolean) || 'Unknown'
             };
           });
         }
@@ -489,6 +498,9 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
     
     // Extract performance metrics if present
     const performanceMetrics: PerformanceMetrics | undefined = extractPerformanceMetrics(parsedJson);
+    
+    // Extract query phase validation results
+    const queryPhaseValidation: QueryPhaseValidationResult | undefined = validateQueryPhases(parsedJson);
     
     return {
       query,
@@ -503,7 +515,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       snapshotId,
       version,
       nonDefaultOptions,
-      performanceMetrics
+      performanceMetrics,
+      queryPhaseValidation
     };
   } catch (error) {
     console.error('Error extracting profile data:', error);
@@ -512,13 +525,13 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
   }
 }
 
-function extractPerformanceMetrics(parsedJson: any): PerformanceMetrics | undefined {
+function extractPerformanceMetrics(parsedJson: Record<string, unknown>): PerformanceMetrics | undefined {
   try {
     // Extract basic timing information
-    const startTime = parsedJson.start || 0;
-    const endTime = parsedJson.end || 0;
-    const planningStart = parsedJson.planningStart || 0;
-    const planningEnd = parsedJson.planningEnd || 0;
+    const startTime = (parsedJson.start as number) || 0;
+    const endTime = (parsedJson.end as number) || 0;
+    const planningStart = (parsedJson.planningStart as number) || 0;
+    const planningEnd = (parsedJson.planningEnd as number) || 0;
     
     const totalQueryTimeMs = endTime - startTime;
     const planningTimeMs = planningEnd - planningStart;
@@ -526,14 +539,14 @@ function extractPerformanceMetrics(parsedJson: any): PerformanceMetrics | undefi
 
     // Extract query info
     const queryInfo = {
-      queryId: parsedJson.id?.part1 || 'Unknown',
-      user: parsedJson.user || 'Unknown',
-      dremioVersion: parsedJson.dremioVersion || parsedJson.clusterInfo?.version?.version
+      queryId: (parsedJson.id as { part1?: string })?.part1 || 'Unknown',
+      user: (parsedJson.user as string) || 'Unknown',
+      dremioVersion: (parsedJson.dremioVersion as string) || (parsedJson.clusterInfo as { version?: { version?: string } })?.version?.version
     };
 
     // Extract phases
     const phases: PerformanceMetrics['phases'] = [];
-    const planPhases = parsedJson.planPhases || [];
+    const planPhases = (parsedJson.planPhases as Array<{ phaseName?: string; durationMillis?: number }>) || [];
     
     for (const phase of planPhases) {
       phases.push({
@@ -543,8 +556,25 @@ function extractPerformanceMetrics(parsedJson: any): PerformanceMetrics | undefi
     }
 
     // Extract detailed operator performance data
-    const operators: any[] = [];
-    const fragmentProfiles = parsedJson.fragmentProfile || [];
+    const operators: Array<Record<string, unknown>> = [];
+    const fragmentProfiles = (parsedJson.fragmentProfile as Array<{
+      majorFragmentId?: number;
+      minorFragmentProfile?: Array<{
+        minorFragmentId?: number;
+        operatorProfile?: Array<{
+          operatorId?: number;
+          operatorType?: number;
+          setupNanos?: number;
+          processNanos?: number;
+          waitNanos?: number;
+          inputProfile?: Array<{ records?: number; size?: number }>;
+          outputRecords?: number;
+          outputBytes?: number;
+          peakLocalMemoryAllocated?: number;
+          metric?: Array<{ metricId?: number; longValue?: number; doubleValue?: number }>;
+        }>;
+      }>;
+    }>) || [];
     
     for (const fragment of fragmentProfiles) {
       const majorFragmentId = fragment.majorFragmentId || 0;
@@ -563,8 +593,8 @@ function extractPerformanceMetrics(parsedJson: any): PerformanceMetrics | undefi
           
           // Extract I/O metrics
           const inputProfiles = op.inputProfile || [];
-          const totalInputRecords = inputProfiles.reduce((sum: number, ip: any) => sum + (ip.records || 0), 0);
-          const totalInputBytes = inputProfiles.reduce((sum: number, ip: any) => sum + (ip.size || 0), 0);
+          const totalInputRecords = inputProfiles.reduce((sum: number, ip) => sum + (ip.records || 0), 0);
+          const totalInputBytes = inputProfiles.reduce((sum: number, ip) => sum + (ip.size || 0), 0);
           const outputRecords = op.outputRecords || 0;
           const outputBytes = op.outputBytes || 0;
           const peakMemory = op.peakLocalMemoryAllocated || 0;
@@ -624,31 +654,32 @@ function extractPerformanceMetrics(parsedJson: any): PerformanceMetrics | undefi
 
     // Sort operators by total time and get top 10
     const topOperators = operators
-      .sort((a, b) => b.totalMs - a.totalMs)
+      .sort((a, b) => (b.totalMs as number) - (a.totalMs as number))
       .slice(0, 10)
       .map(op => {
         // Remove internal fields before returning
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { _setupNanos, _processNanos, _waitNanos, _totalNanos, ...cleanOp } = op;
-        return cleanOp;
+        return cleanOp as PerformanceMetrics['topOperators'][0];
       });
 
     // Calculate operator statistics
     const operatorStats = {
       totalOperators: operators.length,
-      totalOperatorTimeMs: operators.reduce((sum, op) => sum + op.totalMs, 0),
-      maxOperatorTimeMs: operators.length > 0 ? Math.max(...operators.map(op => op.totalMs)) : 0,
-      avgOperatorTimeMs: operators.length > 0 ? Math.round(operators.reduce((sum, op) => sum + op.totalMs, 0) / operators.length) : 0
+      totalOperatorTimeMs: operators.reduce((sum, op) => sum + (op.totalMs as number), 0),
+      maxOperatorTimeMs: operators.length > 0 ? Math.max(...operators.map(op => op.totalMs as number)) : 0,
+      avgOperatorTimeMs: operators.length > 0 ? Math.round(operators.reduce((sum, op) => sum + (op.totalMs as number), 0) / operators.length) : 0
     };
 
     // Find longest running operator and phase
     const longestRunningOperator = operators.length > 0 ? 
       (() => {
-        const longest = operators.reduce((max, op) => op.totalMs > max.totalMs ? op : max);
+        const longest = operators.reduce((max, op) => (op.totalMs as number) > (max.totalMs as number) ? op : max);
         return {
-          operatorId: longest.operatorId,
-          operatorName: longest.operatorName,
-          fragmentId: longest.fragmentId,
-          totalMs: longest.totalMs
+          operatorId: longest.operatorId as number,
+          operatorName: longest.operatorName as string,
+          fragmentId: longest.fragmentId as string,
+          totalMs: longest.totalMs as number
         };
       })() : undefined;
 
@@ -660,79 +691,79 @@ function extractPerformanceMetrics(parsedJson: any): PerformanceMetrics | undefi
     
     // 1. I/O Bottlenecks (high wait times)
     const highWaitOperators = operators.filter(op => 
-      op._waitNanos > op._processNanos && op._waitNanos > 1_000_000 && op._totalNanos > 0
-    ).sort((a, b) => b._waitNanos - a._waitNanos);
+      (op._waitNanos as number) > (op._processNanos as number) && (op._waitNanos as number) > 1_000_000 && (op._totalNanos as number) > 0
+    ).sort((a, b) => (b._waitNanos as number) - (a._waitNanos as number));
     
     if (highWaitOperators.length > 0) {
       const topWaitOp = highWaitOperators[0];
-      const waitPercentage = Math.round((topWaitOp._waitNanos / topWaitOp._totalNanos) * 100);
+      const waitPercentage = Math.round(((topWaitOp._waitNanos as number) / (topWaitOp._totalNanos as number)) * 100);
       bottlenecks.push({
         type: 'I/O',
         description: `High I/O wait time detected in Op ${topWaitOp.operatorId} (${topWaitOp.operatorName})`,
         severity: waitPercentage > 50 ? 'High' : waitPercentage > 25 ? 'Medium' : 'Low',
-        operatorId: topWaitOp.operatorId,
+        operatorId: topWaitOp.operatorId as number,
         recommendation: 'Consider optimizing storage access, partitioning strategy, or predicate pushdown',
-        details: `${waitPercentage}% of execution time spent waiting (${formatTime(topWaitOp._waitNanos)})`
+        details: `${waitPercentage}% of execution time spent waiting (${formatTime(topWaitOp._waitNanos as number)})`
       });
     }
 
     // 2. Selectivity Issues (low selectivity filters)
     const lowSelectivityOperators = operators.filter(op => 
-      op.selectivity !== undefined && op.selectivity < 0.01 && op.inputRecords > 1000
-    ).sort((a, b) => (a.selectivity || 0) - (b.selectivity || 0));
+      op.selectivity !== undefined && (op.selectivity as number) < 0.01 && (op.inputRecords as number) > 1000
+    ).sort((a, b) => (a.selectivity as number || 0) - (b.selectivity as number || 0));
     
     if (lowSelectivityOperators.length > 0) {
       const worstSelectivity = lowSelectivityOperators[0];
-      const selectivityPct = (worstSelectivity.selectivity! * 100).toFixed(3);
+      const selectivityPct = ((worstSelectivity.selectivity as number) * 100).toFixed(3);
       bottlenecks.push({
         type: 'Selectivity',
         description: `Poor filter selectivity in Op ${worstSelectivity.operatorId} (${worstSelectivity.operatorName})`,
-        severity: worstSelectivity.selectivity! < 0.001 ? 'High' : 'Medium',
-        operatorId: worstSelectivity.operatorId,
+        severity: (worstSelectivity.selectivity as number) < 0.001 ? 'High' : 'Medium',
+        operatorId: worstSelectivity.operatorId as number,
         recommendation: 'Improve predicate pushdown, add better indexes, or optimize query filters',
-        details: `${selectivityPct}% selectivity (${worstSelectivity.inputRecords.toLocaleString()} → ${worstSelectivity.outputRecords.toLocaleString()} records)`
+        details: `${selectivityPct}% selectivity (${(worstSelectivity.inputRecords as number).toLocaleString()} → ${(worstSelectivity.outputRecords as number).toLocaleString()} records)`
       });
     }
 
     // 3. Memory Bottlenecks
-    const highMemoryOperators = operators.filter(op => op.peakMemoryMB > 100)
-      .sort((a, b) => b.peakMemoryMB - a.peakMemoryMB);
+    const highMemoryOperators = operators.filter(op => (op.peakMemoryMB as number) > 100)
+      .sort((a, b) => (b.peakMemoryMB as number) - (a.peakMemoryMB as number));
     
     if (highMemoryOperators.length > 0) {
       const topMemoryOp = highMemoryOperators[0];
       bottlenecks.push({
         type: 'Memory',
         description: `High memory usage in Op ${topMemoryOp.operatorId} (${topMemoryOp.operatorName})`,
-        severity: topMemoryOp.peakMemoryMB > 1000 ? 'High' : topMemoryOp.peakMemoryMB > 500 ? 'Medium' : 'Low',
-        operatorId: topMemoryOp.operatorId,
+        severity: (topMemoryOp.peakMemoryMB as number) > 1000 ? 'High' : (topMemoryOp.peakMemoryMB as number) > 500 ? 'Medium' : 'Low',
+        operatorId: topMemoryOp.operatorId as number,
         recommendation: 'Consider increasing memory allocation or optimizing data processing',
         details: `${topMemoryOp.peakMemoryMB}MB peak memory allocation`
       });
     }
 
     // 4. High Record Volume Analysis
-    const highRecordOperators = operators.filter(op => op.inputRecords > 1_000_000)
-      .sort((a, b) => b.inputRecords - a.inputRecords);
+    const highRecordOperators = operators.filter(op => (op.inputRecords as number) > 1_000_000)
+      .sort((a, b) => (b.inputRecords as number) - (a.inputRecords as number));
     
     if (highRecordOperators.length > 0) {
       const topRecordOp = highRecordOperators[0];
-      const throughput = topRecordOp.throughputRecordsPerSec || 0;
+      const throughput = (topRecordOp.throughputRecordsPerSec as number) || 0;
       if (throughput < 100000) { // Less than 100K records/sec might indicate CPU bottleneck
         bottlenecks.push({
           type: 'CPU',
           description: `Low throughput in high-volume Op ${topRecordOp.operatorId} (${topRecordOp.operatorName})`,
           severity: throughput < 10000 ? 'High' : throughput < 50000 ? 'Medium' : 'Low',
-          operatorId: topRecordOp.operatorId,
+          operatorId: topRecordOp.operatorId as number,
           recommendation: 'Consider query optimization, better parallelization, or more CPU resources',
-          details: `Processing ${formatRecords(topRecordOp.inputRecords)} records at ${throughput.toLocaleString()} rec/sec`
+          details: `Processing ${formatRecords(topRecordOp.inputRecords as number)} records at ${throughput.toLocaleString()} rec/sec`
         });
       }
     }
 
     // Calculate comprehensive data volume statistics
-    const totalRecordsProcessed = operators.reduce((sum, op) => sum + op.inputRecords, 0);
-    const totalInputBytes = operators.reduce((sum, op) => sum + op.inputBytes, 0);
-    const totalOutputBytes = operators.reduce((sum, op) => sum + op.outputBytes, 0);
+    const totalRecordsProcessed = operators.reduce((sum, op) => sum + (op.inputRecords as number), 0);
+    const totalInputBytes = operators.reduce((sum, op) => sum + (op.inputBytes as number), 0);
+    const totalOutputBytes = operators.reduce((sum, op) => sum + (op.outputBytes as number), 0);
     const totalDataSizeGB = totalInputBytes / (1024 * 1024 * 1024);
     const avgThroughputRecordsPerSec = executionTimeMs > 0 ? Math.round(totalRecordsProcessed / (executionTimeMs / 1000)) : 0;
     

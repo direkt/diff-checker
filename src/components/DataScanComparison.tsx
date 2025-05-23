@@ -118,7 +118,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
   }, [scans]);
 
   // Filter by rows scanned
-  const meetsRowsScannedCriteria = (scan: DataScan): boolean => {
+  const meetsRowsScannedCriteria = React.useCallback((scan: DataScan): boolean => {
     switch (rowsScannedFilter) {
       case 'low':
         return scan.metrics.rowsScanned <= 100;
@@ -129,16 +129,16 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
       default:
         return true; // 'any' or invalid value
     }
-  };
+  }, [rowsScannedFilter]);
 
   // Filter by filter pattern
-  const meetsFilterPatternCriteria = (scan: DataScan): boolean => {
+  const meetsFilterPatternCriteria = React.useCallback((scan: DataScan): boolean => {
     if (!selectedFilterPattern) return true;
     if (!scan.filterExpression) return false;
     
     // Check if the selected pattern is in the filter expression
     return scan.filterExpression.includes(`Filter on \`${selectedFilterPattern}\``);
-  };
+  }, [selectedFilterPattern]);
 
   // Filter scans based on all criteria
   const filteredScans = React.useMemo(() => {
@@ -148,7 +148,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
       meetsRowsScannedCriteria(scan) &&
       meetsFilterPatternCriteria(scan)
     );
-  }, [scans, selectedScanTypes, searchTerm, rowsScannedFilter, selectedFilterPattern]);
+  }, [scans, selectedScanTypes, searchTerm, meetsRowsScannedCriteria, meetsFilterPatternCriteria]);
 
   // Group scans by table name
   const scansByTable = React.useMemo(() => {

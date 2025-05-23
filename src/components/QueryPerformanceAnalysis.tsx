@@ -221,7 +221,7 @@ const QueryPerformanceAnalysis: React.FC<QueryPerformanceAnalysisProps> = ({
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <div className="text-sm text-gray-600">Compression Ratio</div>
                   <div className="text-lg font-semibold text-gray-900">
-                    {performanceMetrics.dataVolumeStats.compressionRatio.toFixed(1)}:1
+                    {performanceMetrics.dataVolumeStats.compressionRatio.toFixed(2)}x
                   </div>
                 </div>
               )}

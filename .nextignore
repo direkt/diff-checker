@@ -1,0 +1,47 @@
+# Large directories to ignore during Next.js compilation
+dremio/**
+test3/**
+nomura/**
+well-check/**
+
+# File types to ignore
+*.md
+*.py
+*.parquet
+*.yaml
+*.yml
+*.xml
+*.properties
+*.log
+*.txt
+*.csv
+
+# JSON files except essential ones
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!next.config.*
+!.eslintrc.json
+
+# Build and cache directories
+.next/
+out/
+build/
+dist/
+target/
+.cache/
+
+# Version control
+.git/
+.svn/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db 

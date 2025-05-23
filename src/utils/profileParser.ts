@@ -1,15 +1,14 @@
-import fs from 'fs';
 import path from 'path';
 import { ProfileData } from './jqUtils';
 
-export const loadProfileFromFile = async (filePath: string, id: string): Promise<any> => {
+export const loadProfileFromFile = async (filePath: string, id: string): Promise<Record<string, unknown> | null> => {
   try {
     const response = await fetch(filePath);
     if (!response.ok) {
       throw new Error(`Failed to load profile from ${filePath}: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as Record<string, unknown>;
     
     // Try to load version from version.txt if it exists
     try {

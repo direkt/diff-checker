@@ -39,5 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large directories that should be excluded from compilation
+/dremio
 /test3
+/nomura
+/well-check
+
+# Documentation and data files
 *.md
+*.py
+*.parquet

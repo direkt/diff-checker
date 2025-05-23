@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:clean": "rm -rf .next && rm -rf node_modules/.cache && rm -rf tsconfig.tsbuildinfo && next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean": "rm -rf .next && rm -rf node_modules/.cache && rm -rf tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "jq-web": "^0.6.1",

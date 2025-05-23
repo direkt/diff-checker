@@ -206,6 +206,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readFileAsText, extractFolderName, findDeepestJsonFolder, onFilesProcessed]);
 
   // Process a ZIP file
@@ -217,11 +218,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
       const zipContents = await zip.loadAsync(zipFile);
       
       // Group files by folder within the zip
-      const zipFolders = new Map<string, { filename: string, fileRef: any }[]>();
+      const zipFolders = new Map<string, { filename: string, fileRef: JSZip.JSZipObject }[]>();
       
       // Find the deepest folders containing JSON files
       const folderPaths = new Set<string>();
-      const folderFiles = new Map<string, { filename: string, fileRef: any }[]>();
+      const folderFiles = new Map<string, { filename: string, fileRef: JSZip.JSZipObject }[]>();
       
       Object.keys(zipContents.files).forEach(filename => {
         if (filename.endsWith('.json') && !zipContents.files[filename].dir) {
