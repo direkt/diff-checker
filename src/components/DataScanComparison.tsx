@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ProfileData } from '@/utils/jqUtils';
 
 interface DataScan {
@@ -17,10 +17,11 @@ interface DataScan {
 interface DataScanComparisonProps {
   leftData: ProfileData | null;
   rightData: ProfileData | null;
+  viewMode?: 'split' | 'source-only' | 'target-only';
 }
 
-const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, rightData }) => {
-  const [viewMode, setViewMode] = useState<'all' | 'byTable'>('all');
+const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, rightData, viewMode: parentViewMode = 'split' }) => {
+  const [internalViewMode, setInternalViewMode] = useState<'all' | 'byTable'>('all');
   const [selectedScanTypes, setSelectedScanTypes] = useState<string[]>([]);
   const [rowsScannedFilter, setRowsScannedFilter] = useState<string>('any');
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,7 +49,8 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
       return undefined;
     };
 
-    if (leftData?.dataScans) {
+    // Only process left data if we're showing source-only or split view
+    if ((parentViewMode === 'source-only' || parentViewMode === 'split') && leftData?.dataScans) {
       leftData.dataScans.forEach(scan => {
         result.push({
           profileId: 'Source',
@@ -65,7 +67,8 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
       });
     }
 
-    if (rightData?.dataScans) {
+    // Only process right data if we're showing target-only or split view
+    if ((parentViewMode === 'target-only' || parentViewMode === 'split') && rightData?.dataScans) {
       rightData.dataScans.forEach(scan => {
         result.push({
           profileId: 'Target',
@@ -83,7 +86,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
     }
 
     return result;
-  }, [leftData, rightData]);
+  }, [leftData, rightData, parentViewMode]);
 
   // Get unique scan types
   const scanTypes = React.useMemo(() => {
@@ -270,6 +273,15 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
 
   return (
     <div className="space-y-4 text-base">
+      {/* Show title for single column views */}
+      {parentViewMode !== 'split' && (
+        <div className="bg-blue-100 p-3 rounded-lg">
+          <h2 className="text-lg font-medium text-blue-800">
+            {parentViewMode === 'source-only' ? 'Source Data Scans' : 'Target Data Scans'}
+          </h2>
+        </div>
+      )}
+      
       <div className="bg-white p-4 rounded-lg shadow-sm">
         <div className="flex flex-wrap gap-4 mb-4">
           <div>
@@ -279,8 +291,8 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
             <select
               id="viewMode"
               className="p-2 border border-gray-300 rounded-md"
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value as 'all' | 'byTable')}
+              value={internalViewMode}
+              onChange={(e) => setInternalViewMode(e.target.value as 'all' | 'byTable')}
             >
               <option value="all">All Scans</option>
               <option value="byTable">Compare by Table</option>
@@ -364,7 +376,7 @@ const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, right
         </div>
       </div>
 
-      {viewMode === 'all' ? renderAllScansView() : renderTableComparisonView()}
+      {internalViewMode === 'all' ? renderAllScansView() : renderTableComparisonView()}
     </div>
   );
 };

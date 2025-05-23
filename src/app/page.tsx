@@ -304,7 +304,7 @@ export default function Home() {
         )}
 
         {/* Display non-default options (support keys) for both sides */}
-        {leftData?.nonDefaultOptions?.length > 0 || rightData?.nonDefaultOptions?.length > 0 ? (
+        {(leftData?.nonDefaultOptions?.length ?? 0) > 0 || (rightData?.nonDefaultOptions?.length ?? 0) > 0 ? (
           <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border rounded-lg p-4 bg-white shadow-sm">
               <div className="flex items-center justify-between mb-3">
@@ -319,7 +319,7 @@ export default function Home() {
                 </button>
               </div>
               {leftOptionsOpen && (
-                leftData?.nonDefaultOptions?.length > 0 ? (
+                (leftData?.nonDefaultOptions?.length ?? 0) > 0 ? (
                   <div id="left-non-default-options">
                     <table className="min-w-full text-sm">
                       <thead>
@@ -329,7 +329,7 @@ export default function Home() {
                         </tr>
                       </thead>
                       <tbody>
-                        {leftData.nonDefaultOptions.map((opt, idx) => (
+                        {leftData?.nonDefaultOptions?.map((opt, idx) => (
                           <tr key={idx}>
                             <td className="pr-4 text-gray-800">{opt.name}</td>
                             <td className="text-gray-800">{String(opt.value)}</td>
@@ -356,7 +356,7 @@ export default function Home() {
                 </button>
               </div>
               {rightOptionsOpen && (
-                rightData?.nonDefaultOptions?.length > 0 ? (
+                (rightData?.nonDefaultOptions?.length ?? 0) > 0 ? (
                   <div id="right-non-default-options">
                     <table className="min-w-full text-sm">
                       <thead>
@@ -366,7 +366,7 @@ export default function Home() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rightData.nonDefaultOptions.map((opt, idx) => (
+                        {rightData?.nonDefaultOptions?.map((opt, idx) => (
                           <tr key={idx}>
                             <td className="pr-4 text-gray-800">{opt.name}</td>
                             <td className="text-gray-800">{String(opt.value)}</td>

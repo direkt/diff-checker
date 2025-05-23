@@ -1,11 +1,10 @@
-import React, { ReactElement, useMemo } from 'react';
+import React, { ReactElement, useMemo, useState } from 'react';
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued';
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql';
 import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ProfileData } from '@/utils/jqUtils';
 import DataScanComparison from './DataScanComparison';
-import { OperatorGraph } from './OperatorGraph';
 
 SyntaxHighlighter.registerLanguage('sql', sql);
 
@@ -16,7 +15,11 @@ interface DiffViewerProps {
   showWordDiff?: boolean;
 }
 
+type ViewMode = 'split' | 'source-only' | 'target-only';
+
 const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSection, showWordDiff = true }) => {
+  const [viewMode, setViewMode] = useState<ViewMode>('split');
+
   // Custom styles to improve word-level diffing
   const customStyles = {
     variables: {
@@ -43,6 +46,58 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
       display: 'inline-block',
     },
   };
+
+  // Render view mode toggle buttons
+  const renderViewModeToggle = () => (
+    <div className="flex justify-center mb-6 bg-white p-4 rounded-lg shadow-sm">
+      <div className="flex space-x-2">
+        <button
+          onClick={() => setViewMode('source-only')}
+          className={`px-4 py-2 rounded-md font-medium transition-colors ${
+            viewMode === 'source-only'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          📄 Source Only
+        </button>
+        <button
+          onClick={() => setViewMode('split')}
+          className={`px-4 py-2 rounded-md font-medium transition-colors ${
+            viewMode === 'split'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          ⚖️ Split View
+        </button>
+        <button
+          onClick={() => setViewMode('target-only')}
+          className={`px-4 py-2 rounded-md font-medium transition-colors ${
+            viewMode === 'target-only'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          📄 Target Only
+        </button>
+      </div>
+    </div>
+  );
+
+  // Render single column content
+  const renderSingleColumn = (data: ProfileData, title: string, content: string) => (
+    <div className="border rounded-lg overflow-hidden bg-white">
+      <div className="bg-blue-100 p-4 font-medium text-blue-800 text-lg">
+        {title}
+      </div>
+      <div className="p-6">
+        <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+          {content}
+        </pre>
+      </div>
+    </div>
+  );
 
   // Parse plan into operators - moved before any conditional returns
   const planOperators = useMemo(() => {
@@ -157,38 +212,57 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
 
   // Special case for data scans
   if (selectedSection === 'dataScans') {
-    return <div className="text-base"><DataScanComparison leftData={leftData} rightData={rightData} /></div>;
+    return (
+      <div className="text-base">
+        {renderViewModeToggle()}
+        <DataScanComparison leftData={leftData} rightData={rightData} viewMode={viewMode} />
+      </div>
+    );
   }
 
-  // For non-plan sections, use the standard diff viewer
+  // For non-plan sections, use the standard diff viewer or single column view
   if (selectedSection !== 'plan' || !planOperators) {
     const leftContent = getContentForSection(leftData, selectedSection);
     const rightContent = getContentForSection(rightData, selectedSection);
 
     return (
-      <div className="border rounded-lg overflow-hidden text-base">
-        <ReactDiffViewer
-          oldValue={leftContent}
-          newValue={rightContent}
-          splitView={true}
-          useDarkTheme={false}
-          showDiffOnly={false}
-          disableWordDiff={!showWordDiff}
-          leftTitle="Source"
-          rightTitle="Target"
-          styles={{...customStyles, contentText: {fontSize: '1rem'}}}
-          compareMethod={DiffMethod.WORDS}
-          renderContent={(str: string): ReactElement => {
-            if (selectedSection === 'vdsDetails') {
-              return (
-                <SyntaxHighlighter language="sql" style={docco} customStyle={{fontSize: '1rem'}}>
-                  {str}
-                </SyntaxHighlighter>
-              );
-            }
-            return <span>{str}</span>;
-          }}
-        />
+      <div>
+        {renderViewModeToggle()}
+        
+        {viewMode === 'source-only' && (
+          renderSingleColumn(leftData, "Source", leftContent)
+        )}
+        
+        {viewMode === 'target-only' && (
+          renderSingleColumn(rightData, "Target", rightContent)
+        )}
+        
+        {viewMode === 'split' && (
+          <div className="border rounded-lg overflow-hidden text-base">
+            <ReactDiffViewer
+              oldValue={leftContent}
+              newValue={rightContent}
+              splitView={true}
+              useDarkTheme={false}
+              showDiffOnly={false}
+              disableWordDiff={!showWordDiff}
+              leftTitle="Source"
+              rightTitle="Target"
+              styles={{...customStyles, contentText: {fontSize: '1rem'}}}
+              compareMethod={DiffMethod.WORDS}
+              renderContent={(str: string): ReactElement => {
+                if (selectedSection === 'vdsDetails') {
+                  return (
+                    <SyntaxHighlighter language="sql" style={docco} customStyle={{fontSize: '1rem'}}>
+                      {str}
+                    </SyntaxHighlighter>
+                  );
+                }
+                return <span>{str}</span>;
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -197,35 +271,63 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
   if (selectedSection === 'plan' && leftData?.jsonPlan && rightData?.jsonPlan) {
     return (
       <div className="flex flex-col gap-8 text-base">
+        {renderViewModeToggle()}
+        
         {/* Snapshot IDs differ warning - now above the snapshot IDs */}
         {leftData.snapshotId && rightData.snapshotId && leftData.snapshotId !== rightData.snapshotId && (
           <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
             Snapshot IDs differ!
           </div>
         )}
+        
         {/* Snapshot ID Section */}
-        <div className="flex flex-row gap-8 items-center">
-          <div className="flex-1">
-            <div className="border rounded-lg bg-white p-3">
-              <span className="font-medium text-blue-800">Source Snapshot ID: </span>
-              {leftData.snapshotId ? (
-                <span className="text-gray-800">{leftData.snapshotId}</span>
-              ) : (
-                <span className="text-gray-400 italic">Not found</span>
-              )}
+        {viewMode === 'split' && (
+          <div className="flex flex-row gap-8 items-center">
+            <div className="flex-1">
+              <div className="border rounded-lg bg-white p-3">
+                <span className="font-medium text-blue-800">Source Snapshot ID: </span>
+                {leftData.snapshotId ? (
+                  <span className="text-gray-800">{leftData.snapshotId}</span>
+                ) : (
+                  <span className="text-gray-400 italic">Not found</span>
+                )}
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="border rounded-lg bg-white p-3">
+                <span className="font-medium text-blue-800">Target Snapshot ID: </span>
+                {rightData.snapshotId ? (
+                  <span className="text-gray-800">{rightData.snapshotId}</span>
+                ) : (
+                  <span className="text-gray-400 italic">Not found</span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex-1">
-            <div className="border rounded-lg bg-white p-3">
-              <span className="font-medium text-blue-800">Target Snapshot ID: </span>
-              {rightData.snapshotId ? (
-                <span className="text-gray-800">{rightData.snapshotId}</span>
-              ) : (
-                <span className="text-gray-400 italic">Not found</span>
-              )}
-            </div>
+        )}
+        
+        {viewMode === 'source-only' && (
+          <div className="border rounded-lg bg-white p-3">
+            <span className="font-medium text-blue-800">Source Snapshot ID: </span>
+            {leftData.snapshotId ? (
+              <span className="text-gray-800">{leftData.snapshotId}</span>
+            ) : (
+              <span className="text-gray-400 italic">Not found</span>
+            )}
           </div>
-        </div>
+        )}
+        
+        {viewMode === 'target-only' && (
+          <div className="border rounded-lg bg-white p-3">
+            <span className="font-medium text-blue-800">Target Snapshot ID: </span>
+            {rightData.snapshotId ? (
+              <span className="text-gray-800">{rightData.snapshotId}</span>
+            ) : (
+              <span className="text-gray-400 italic">Not found</span>
+            )}
+          </div>
+        )}
+
         {/* Dataset Information Section */}
         <div className="space-y-4">
           {/* PDS Dataset Paths */}
@@ -234,22 +336,37 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               PDS Dataset Paths
             </div>
             <div className="p-4">
-              {leftData.pdsDatasetPaths.join('\n') !== rightData.pdsDatasetPaths.join('\n') && (
+              {viewMode === 'split' && leftData.pdsDatasetPaths.join('\n') !== rightData.pdsDatasetPaths.join('\n') && (
                 <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
                   PDS Dataset Paths differ!
                 </div>
               )}
-              <ReactDiffViewer
-                oldValue={leftData.pdsDatasetPaths.join('\n')}
-                newValue={rightData.pdsDatasetPaths.join('\n')}
-                splitView={true}
-                useDarkTheme={false}
-                showDiffOnly={false}
-                disableWordDiff={!showWordDiff}
-                leftTitle="Source"
-                rightTitle="Target"
-                styles={customStyles}
-              />
+              
+              {viewMode === 'source-only' && (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                  {leftData.pdsDatasetPaths.join('\n')}
+                </pre>
+              )}
+              
+              {viewMode === 'target-only' && (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                  {rightData.pdsDatasetPaths.join('\n')}
+                </pre>
+              )}
+              
+              {viewMode === 'split' && (
+                <ReactDiffViewer
+                  oldValue={leftData.pdsDatasetPaths.join('\n')}
+                  newValue={rightData.pdsDatasetPaths.join('\n')}
+                  splitView={true}
+                  useDarkTheme={false}
+                  showDiffOnly={false}
+                  disableWordDiff={!showWordDiff}
+                  leftTitle="Source"
+                  rightTitle="Target"
+                  styles={customStyles}
+                />
+              )}
             </div>
           </div>
 
@@ -259,33 +376,38 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               VDS Dataset Paths
             </div>
             <div className="p-4">
-              {leftData.vdsDatasetPaths.join('\n') !== rightData.vdsDatasetPaths.join('\n') && (
+              {viewMode === 'split' && leftData.vdsDatasetPaths.join('\n') !== rightData.vdsDatasetPaths.join('\n') && (
                 <div className="w-full max-w-xl mx-auto mb-4 bg-yellow-100 p-3 text-yellow-800 font-semibold rounded-lg text-center">
                   VDS Dataset Paths differ!
                 </div>
               )}
-              <ReactDiffViewer
-                oldValue={leftData.vdsDatasetPaths.join('\n')}
-                newValue={rightData.vdsDatasetPaths.join('\n')}
-                splitView={true}
-                useDarkTheme={false}
-                showDiffOnly={false}
-                disableWordDiff={!showWordDiff}
-                leftTitle="Source"
-                rightTitle="Target"
-                styles={customStyles}
-              />
+              
+              {viewMode === 'source-only' && (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                  {leftData.vdsDatasetPaths.join('\n')}
+                </pre>
+              )}
+              
+              {viewMode === 'target-only' && (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                  {rightData.vdsDatasetPaths.join('\n')}
+                </pre>
+              )}
+              
+              {viewMode === 'split' && (
+                <ReactDiffViewer
+                  oldValue={leftData.vdsDatasetPaths.join('\n')}
+                  newValue={rightData.vdsDatasetPaths.join('\n')}
+                  splitView={true}
+                  useDarkTheme={false}
+                  showDiffOnly={false}
+                  disableWordDiff={!showWordDiff}
+                  leftTitle="Source"
+                  rightTitle="Target"
+                  styles={customStyles}
+                />
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* Plan Graph Section */}
-        <div className="flex flex-row gap-8">
-          <div className="flex-1">
-            <OperatorGraph planJson={leftData.jsonPlan} title="Source Plan Graph" version={leftData.version} />
-          </div>
-          <div className="flex-1">
-            <OperatorGraph planJson={rightData.jsonPlan} title="Target Plan Graph" version={rightData.version} />
           </div>
         </div>
 
@@ -299,26 +421,40 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
               <div key={operator.operatorType} className="border rounded-lg overflow-hidden bg-white text-base">
                 <div className="bg-blue-100 p-3 font-medium text-blue-800">
                   Operator Type: {operator.operatorType}
-                  {operator.leftOperatorNumber && (
+                  {viewMode !== 'target-only' && operator.leftOperatorNumber && (
                     <span className="ml-4 text-xs text-gray-500">Source operator: {operator.leftOperatorNumber}</span>
                   )}
-                  {operator.rightOperatorNumber && (
+                  {viewMode !== 'source-only' && operator.rightOperatorNumber && (
                     <span className="ml-4 text-xs text-gray-500">Target operator: {operator.rightOperatorNumber}</span>
                   )}
                 </div>
                 <div className="p-4 text-base">
-                  <ReactDiffViewer
-                    oldValue={operator.leftContent}
-                    newValue={operator.rightContent}
-                    splitView={true}
-                    useDarkTheme={false}
-                    showDiffOnly={false}
-                    disableWordDiff={!showWordDiff}
-                    leftTitle="Source"
-                    rightTitle="Target"
-                    compareMethod={DiffMethod.WORDS}
-                    styles={{...customStyles, contentText: {fontSize: '1rem'}}}
-                  />
+                  {viewMode === 'source-only' && (
+                    <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                      {operator.leftContent}
+                    </pre>
+                  )}
+                  
+                  {viewMode === 'target-only' && (
+                    <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                      {operator.rightContent}
+                    </pre>
+                  )}
+                  
+                  {viewMode === 'split' && (
+                    <ReactDiffViewer
+                      oldValue={operator.leftContent}
+                      newValue={operator.rightContent}
+                      splitView={true}
+                      useDarkTheme={false}
+                      showDiffOnly={false}
+                      disableWordDiff={!showWordDiff}
+                      leftTitle="Source"
+                      rightTitle="Target"
+                      compareMethod={DiffMethod.WORDS}
+                      styles={{...customStyles, contentText: {fontSize: '1rem'}}}
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -329,37 +465,54 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSe
   }
 
   return (
-    <div className="space-y-6">
-      <div className="px-4 py-2 text-sm text-gray-700 font-medium">
-        {planOperators.length} operator type{planOperators.length !== 1 ? 's' : ''} found
-      </div>
-      {planOperators.map((operator) => (
-        <div key={operator.operatorType} className="border rounded-lg overflow-hidden bg-white text-base">
-          <div className="bg-blue-100 p-3 font-medium text-blue-800">
-            Operator Type: {operator.operatorType}
-            {operator.leftOperatorNumber && (
-              <span className="ml-4 text-xs text-gray-500">Source operator: {operator.leftOperatorNumber}</span>
-            )}
-            {operator.rightOperatorNumber && (
-              <span className="ml-4 text-xs text-gray-500">Target operator: {operator.rightOperatorNumber}</span>
-            )}
-          </div>
-          <div className="p-4 text-base">
-            <ReactDiffViewer
-              oldValue={operator.leftContent}
-              newValue={operator.rightContent}
-              splitView={true}
-              useDarkTheme={false}
-              showDiffOnly={false}
-              disableWordDiff={!showWordDiff}
-              leftTitle="Source"
-              rightTitle="Target"
-              compareMethod={DiffMethod.WORDS}
-              styles={{...customStyles, contentText: {fontSize: '1rem'}}}
-            />
-          </div>
+    <div>
+      {renderViewModeToggle()}
+      <div className="space-y-6">
+        <div className="px-4 py-2 text-sm text-gray-700 font-medium">
+          {planOperators.length} operator type{planOperators.length !== 1 ? 's' : ''} found
         </div>
-      ))}
+        {planOperators.map((operator) => (
+          <div key={operator.operatorType} className="border rounded-lg overflow-hidden bg-white text-base">
+            <div className="bg-blue-100 p-3 font-medium text-blue-800">
+              Operator Type: {operator.operatorType}
+              {viewMode !== 'target-only' && operator.leftOperatorNumber && (
+                <span className="ml-4 text-xs text-gray-500">Source operator: {operator.leftOperatorNumber}</span>
+              )}
+              {viewMode !== 'source-only' && operator.rightOperatorNumber && (
+                <span className="ml-4 text-xs text-gray-500">Target operator: {operator.rightOperatorNumber}</span>
+              )}
+            </div>
+            <div className="p-4 text-base">
+              {viewMode === 'source-only' && (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                  {operator.leftContent}
+                </pre>
+              )}
+              
+              {viewMode === 'target-only' && (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-md overflow-auto text-gray-800 font-mono">
+                  {operator.rightContent}
+                </pre>
+              )}
+              
+              {viewMode === 'split' && (
+                <ReactDiffViewer
+                  oldValue={operator.leftContent}
+                  newValue={operator.rightContent}
+                  splitView={true}
+                  useDarkTheme={false}
+                  showDiffOnly={false}
+                  disableWordDiff={!showWordDiff}
+                  leftTitle="Source"
+                  rightTitle="Target"
+                  compareMethod={DiffMethod.WORDS}
+                  styles={{...customStyles, contentText: {fontSize: '1rem'}}}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
