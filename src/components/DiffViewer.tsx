@@ -20,7 +20,7 @@ type ViewMode = 'split' | 'source-only' | 'target-only';
 
 const DiffViewer: React.FC<DiffViewerProps> = ({ leftData, rightData, selectedSection, showWordDiff = true }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
-  const [performanceAnalysisCollapsed, setPerformanceAnalysisCollapsed] = useState(true);
+  const [performanceAnalysisCollapsed, setPerformanceAnalysisCollapsed] = useState(false);
 
   // Custom styles to improve word-level diffing
   const customStyles = {

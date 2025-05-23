@@ -14,7 +14,7 @@ const QueryPerformanceAnalysis: React.FC<QueryPerformanceAnalysisProps> = ({
   isCollapsed: externalIsCollapsed,
   onToggleCollapsed
 }) => {
-  const [internalIsCollapsed, setInternalIsCollapsed] = useState(true);
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
   
   // Use external state if provided, otherwise use internal state
   const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : internalIsCollapsed;

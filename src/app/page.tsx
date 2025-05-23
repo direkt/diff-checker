@@ -32,7 +32,7 @@ export default function Home() {
   
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [showWordDiff, setShowWordDiff] = useState(true);
-  const [optionsOpen, setOptionsOpen] = useState(false); // Single state for both options sections
+  const [optionsOpen, setOptionsOpen] = useState(true); // Changed from false to true to expand by default
 
   // Group files by query ID whenever files change
   useEffect(() => {
