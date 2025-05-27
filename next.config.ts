@@ -37,20 +37,30 @@ const nextConfig: NextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
 
-  // Configure what files to ignore during development
-  watchOptions: {
-    ignored: [
-      '**/node_modules/**',
-      '**/dremio/**',
-      '**/test3/**', 
-      '**/nomura/**',
-      '**/well-check/**',
-      '**/.next/**',
-      '**/.git/**',
-      '**/*.md',
-      '**/*.py',
-      '**/*.parquet',
-    ],
+  // Configure page extensions (only include relevant file types)
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+
+  // Webpack configuration for better performance
+  webpack: (config, { dev, isServer }) => {
+    if (dev) {
+      // Exclude large directories from webpack watching
+      config.watchOptions = {
+        ignored: [
+          '**/node_modules/**',
+          '**/dremio/**',
+          '**/test3/**', 
+          '**/nomura/**',
+          '**/well-check/**',
+          '**/.next/**',
+          '**/.git/**',
+          '**/*.md',
+          '**/*.py',
+          '**/*.parquet',
+          '**/venv/**',
+        ],
+      };
+    }
+    return config;
   },
 };
 
