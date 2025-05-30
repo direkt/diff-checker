@@ -1,10 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import FileUploader from "@/components/FileUploader";
 import DiffViewer from "@/components/DiffViewer";
 import QueryPhaseValidation from "@/components/QueryPhaseValidation";
+import ExportPDFButton from "@/components/ExportPDFButton";
+import AttemptSelector from "@/components/AttemptSelector";
 import { extractProfileData, ProfileData } from "@/utils/jqUtils";
+import { 
+  detectMultipleAttempts, 
+  hasMultipleAttempts 
+} from "@/utils/multipleAttemptsUtils";
+import { 
+  ProcessedFileWithAttempts, 
+  MultiAttemptQuery 
+} from "@/types/multipleAttempts";
 
 interface ProcessedFile {
   name: string;
@@ -16,6 +26,8 @@ interface QueryGroup {
   queryId: string;
   folderName: string;
   files: ProcessedFile[];
+  isMultiAttempt?: boolean;
+  multiAttemptQuery?: MultiAttemptQuery;
 }
 
 export default function Home() {
@@ -27,6 +39,11 @@ export default function Home() {
   const [allFiles, setAllFiles] = useState<ProcessedFile[]>([]);
   const [queryGroups, setQueryGroups] = useState<QueryGroup[]>([]);
   
+  // Multi-attempt tracking
+  const [multiAttemptQueries, setMultiAttemptQueries] = useState<MultiAttemptQuery[]>([]);
+  const [selectedLeftAttemptNumber, setSelectedLeftAttemptNumber] = useState<number>(0);
+  const [selectedRightAttemptNumber, setSelectedRightAttemptNumber] = useState<number>(0);
+  
   const [selectedLeftQueryId, setSelectedLeftQueryId] = useState<string>("");
   const [selectedRightQueryId, setSelectedRightQueryId] = useState<string>("");
   
@@ -34,31 +51,64 @@ export default function Home() {
   const [showWordDiff, setShowWordDiff] = useState(true);
   const [optionsOpen, setOptionsOpen] = useState(true); // Changed from false to true to expand by default
 
+  // Create ref for PDF export content
+  const contentRef = useRef<HTMLDivElement>(null);
+
   // Group files by query ID whenever files change
   useEffect(() => {
     const groupFilesByQueryId = (files: ProcessedFile[]): QueryGroup[] => {
       console.log('Grouping files by queryId:', files);
       
-      const queryMap: Record<string, ProcessedFile[]> = {};
+      // Convert ProcessedFile[] to ProcessedFileWithAttempts[]
+      const filesWithAttempts: ProcessedFileWithAttempts[] = files.map(file => ({
+        ...file,
+        attemptInfo: undefined // Will be populated by detectMultipleAttempts if applicable
+      }));
       
-      // Group files by queryId (which is now the folder name)
-      files.forEach(file => {
-        if (!queryMap[file.queryId]) {
-          queryMap[file.queryId] = [];
+      // Detect multiple attempts
+      const { singleQueries, multiAttemptQueries: detectedMultiAttempts } = detectMultipleAttempts(filesWithAttempts);
+      
+      console.log('Detected multi-attempt queries:', detectedMultiAttempts);
+      console.log('Single queries:', singleQueries);
+      
+      // Update multi-attempt queries state
+      setMultiAttemptQueries(detectedMultiAttempts);
+      
+      // Create QueryGroup objects for single queries
+      const singleQueryGroups: QueryGroup[] = [];
+      const singleQueryMap: Record<string, ProcessedFile[]> = {};
+      
+      singleQueries.forEach(file => {
+        if (!singleQueryMap[file.queryId]) {
+          singleQueryMap[file.queryId] = [];
         }
-        queryMap[file.queryId].push(file);
+        singleQueryMap[file.queryId].push(file);
       });
       
-      // Convert map to array of QueryGroup objects
-      return Object.entries(queryMap).map(([queryId, files]) => ({
-        queryId,
-        folderName: queryId, // Using queryId as the folderName
-        files
+      Object.entries(singleQueryMap).forEach(([queryId, files]) => {
+        singleQueryGroups.push({
+          queryId,
+          folderName: queryId,
+          files,
+          isMultiAttempt: false
+        });
+      });
+      
+      // Create QueryGroup objects for multi-attempt queries
+      const multiAttemptGroups: QueryGroup[] = detectedMultiAttempts.map(multiQuery => ({
+        queryId: multiQuery.baseQueryId,
+        folderName: multiQuery.baseQueryId,
+        files: [], // Files are managed through the multiAttemptQuery
+        isMultiAttempt: true,
+        multiAttemptQuery: multiQuery
       }));
+      
+      const allGroups = [...singleQueryGroups, ...multiAttemptGroups];
+      console.log('Generated query groups:', allGroups);
+      return allGroups;
     };
     
     const groups = groupFilesByQueryId(allFiles);
-    console.log('Generated query groups:', groups);
     setQueryGroups(groups);
   }, [allFiles]);
 
@@ -96,8 +146,24 @@ export default function Home() {
     console.log('Processing left side for queryId:', selectedLeftQueryId);
     
     const queryGroup = queryGroups.find(group => group.queryId === selectedLeftQueryId);
-    if (queryGroup && queryGroup.files.length > 0) {
-      // Find profile.json file or use the first file
+    if (!queryGroup) return;
+    
+    if (queryGroup.isMultiAttempt && queryGroup.multiAttemptQuery) {
+      // Handle multi-attempt query
+      const selectedAttempt = queryGroup.multiAttemptQuery.attempts.find(
+        attempt => attempt.attemptNumber === selectedLeftAttemptNumber
+      );
+      
+      if (selectedAttempt?.rawProfileContent) {
+        console.log(`Selected attempt ${selectedLeftAttemptNumber} for left side`);
+        processFile(selectedAttempt.rawProfileContent, "left");
+      } else if (selectedAttempt?.profileFile) {
+        // If we don't have raw content, try to find it in the attempts
+        console.log(`Profile file for attempt ${selectedLeftAttemptNumber}:`, selectedAttempt.profileFile);
+        // For now, we'll skip this case since we should have raw content
+      }
+    } else if (queryGroup.files.length > 0) {
+      // Handle single query
       const profileFile = queryGroup.files.find(file => 
         file.name.endsWith('profile.json') || 
         file.name.toLowerCase().includes('profile')
@@ -106,7 +172,7 @@ export default function Home() {
       console.log('Selected profile file for left side:', profileFile.name);
       processFile(profileFile.content, "left");
     }
-  }, [selectedLeftQueryId, queryGroups]);
+  }, [selectedLeftQueryId, selectedLeftAttemptNumber, queryGroups]);
 
   // Process file for right side when selection changes
   useEffect(() => {
@@ -115,8 +181,24 @@ export default function Home() {
     console.log('Processing right side for queryId:', selectedRightQueryId);
     
     const queryGroup = queryGroups.find(group => group.queryId === selectedRightQueryId);
-    if (queryGroup && queryGroup.files.length > 0) {
-      // Find profile.json file or use the first file
+    if (!queryGroup) return;
+    
+    if (queryGroup.isMultiAttempt && queryGroup.multiAttemptQuery) {
+      // Handle multi-attempt query
+      const selectedAttempt = queryGroup.multiAttemptQuery.attempts.find(
+        attempt => attempt.attemptNumber === selectedRightAttemptNumber
+      );
+      
+      if (selectedAttempt?.rawProfileContent) {
+        console.log(`Selected attempt ${selectedRightAttemptNumber} for right side`);
+        processFile(selectedAttempt.rawProfileContent, "right");
+      } else if (selectedAttempt?.profileFile) {
+        // If we don't have raw content, try to find it in the attempts
+        console.log(`Profile file for attempt ${selectedRightAttemptNumber}:`, selectedAttempt.profileFile);
+        // For now, we'll skip this case since we should have raw content
+      }
+    } else if (queryGroup.files.length > 0) {
+      // Handle single query
       const profileFile = queryGroup.files.find(file => 
         file.name.endsWith('profile.json') || 
         file.name.toLowerCase().includes('profile')
@@ -125,7 +207,7 @@ export default function Home() {
       console.log('Selected profile file for right side:', profileFile.name);
       processFile(profileFile.content, "right");
     }
-  }, [selectedRightQueryId, queryGroups]);
+  }, [selectedRightQueryId, selectedRightAttemptNumber, queryGroups]);
 
   const processFile = useCallback(async (content: string, side: "left" | "right") => {
     setIsProcessing(true);
@@ -144,15 +226,22 @@ export default function Home() {
     }
   }, []);
 
-  const handleFilesProcessed = useCallback((files: ProcessedFile[]) => {
+  const handleFilesProcessed = useCallback((files: ProcessedFileWithAttempts[]) => {
     console.log('Files processed:', files);
+    
+    // Convert ProcessedFileWithAttempts back to ProcessedFile for compatibility with existing state
+    const processedFiles: ProcessedFile[] = files.map(file => ({
+      name: file.name,
+      content: file.content,
+      queryId: file.queryId
+    }));
     
     setAllFiles(prevFiles => {
       // Merge new files with existing files
       const newFiles = [...prevFiles];
       
       // Add only files that don't already exist (based on name and queryId)
-      files.forEach(file => {
+      processedFiles.forEach(file => {
         if (!newFiles.some(f => f.name === file.name && f.queryId === file.queryId)) {
           newFiles.push(file);
         }
@@ -167,12 +256,30 @@ export default function Home() {
     const queryId = e.target.value;
     console.log('Left query selected:', queryId);
     setSelectedLeftQueryId(queryId);
+    
+    // Reset attempt selection when changing queries
+    setSelectedLeftAttemptNumber(0);
   }, []);
 
   const handleRightQuerySelect = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const queryId = e.target.value;
     console.log('Right query selected:', queryId);
     setSelectedRightQueryId(queryId);
+    
+    // Reset attempt selection when changing queries
+    setSelectedRightAttemptNumber(0);
+  }, []);
+
+  // Handle attempt selection for left side
+  const handleLeftAttemptSelect = useCallback((attemptNumber: number) => {
+    console.log('Left attempt selected:', attemptNumber);
+    setSelectedLeftAttemptNumber(attemptNumber);
+  }, []);
+
+  // Handle attempt selection for right side
+  const handleRightAttemptSelect = useCallback((attemptNumber: number) => {
+    console.log('Right attempt selected:', attemptNumber);
+    setSelectedRightAttemptNumber(attemptNumber);
   }, []);
 
   // Get the count of unique query IDs (folder names)
@@ -234,11 +341,27 @@ export default function Home() {
                 >
                   {queryGroups.map((group) => (
                     <option key={`left-${group.queryId}`} value={group.queryId} className="text-gray-800 bg-white">
-                      {group.folderName} ({getFileCountForFolder(group.queryId)} files)
+                      {group.folderName} ({group.isMultiAttempt ? `${group.multiAttemptQuery?.totalAttempts} attempts` : `${getFileCountForFolder(group.queryId)} files`})
                     </option>
                   ))}
                 </select>
               </div>
+              
+              {/* Attempt Selector for Left Side */}
+              {(() => {
+                const leftQueryGroup = queryGroups.find(g => g.queryId === selectedLeftQueryId);
+                if (leftQueryGroup?.isMultiAttempt && leftQueryGroup.multiAttemptQuery) {
+                  return (
+                    <AttemptSelector
+                      multiAttemptQuery={leftQueryGroup.multiAttemptQuery}
+                      selectedAttemptNumber={selectedLeftAttemptNumber}
+                      onAttemptSelect={handleLeftAttemptSelect}
+                      side="left"
+                    />
+                  );
+                }
+                return null;
+              })()}
             </div>
             
             <div className="bg-white p-4 rounded-lg shadow-sm">
@@ -255,11 +378,27 @@ export default function Home() {
                 >
                   {queryGroups.map((group) => (
                     <option key={`right-${group.queryId}`} value={group.queryId} className="text-gray-800 bg-white">
-                      {group.folderName} ({getFileCountForFolder(group.queryId)} files)
+                      {group.folderName} ({group.isMultiAttempt ? `${group.multiAttemptQuery?.totalAttempts} attempts` : `${getFileCountForFolder(group.queryId)} files`})
                     </option>
                   ))}
                 </select>
               </div>
+              
+              {/* Attempt Selector for Right Side */}
+              {(() => {
+                const rightQueryGroup = queryGroups.find(g => g.queryId === selectedRightQueryId);
+                if (rightQueryGroup?.isMultiAttempt && rightQueryGroup.multiAttemptQuery) {
+                  return (
+                    <AttemptSelector
+                      multiAttemptQuery={rightQueryGroup.multiAttemptQuery}
+                      selectedAttemptNumber={selectedRightAttemptNumber}
+                      onAttemptSelect={handleRightAttemptSelect}
+                      side="right"
+                    />
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         )}
@@ -481,14 +620,23 @@ export default function Home() {
           </div>
         )}
 
-        {/* Toggle Word Diff Button */}
-        <div className="flex justify-center mb-4">
+        {/* Toggle Word Diff Button and Export PDF Button */}
+        <div className="flex justify-center gap-4 mb-4">
           <button
             className={`px-4 py-2 rounded font-semibold shadow transition-colors duration-150 ${showWordDiff ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             onClick={() => setShowWordDiff((prev) => !prev)}
           >
             {showWordDiff ? 'Hide Word Differences' : 'Show Word Differences'}
           </button>
+          
+          {leftData && rightData && (
+            <ExportPDFButton
+              selectedLeftQueryId={selectedLeftQueryId}
+              selectedRightQueryId={selectedRightQueryId}
+              selectedSection={selectedSection}
+              contentRef={contentRef}
+            />
+          )}
         </div>
 
         {isProcessing ? (
@@ -496,7 +644,7 @@ export default function Home() {
             <p className="text-lg">Processing files...</p>
           </div>
         ) : (
-          <div className="text-base">
+          <div ref={contentRef} className="text-base">
             <DiffViewer
               leftData={leftData}
               rightData={rightData}
