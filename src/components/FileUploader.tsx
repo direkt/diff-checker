@@ -1,10 +1,9 @@
 import React, { useCallback, useState, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
-import { ProcessedFileWithAttempts } from '@/types/multipleAttempts';
 
 interface FileUploaderProps {
-  onFilesProcessed: (files: ProcessedFileWithAttempts[]) => void;
+  onFilesProcessed: (files: { name: string; content: string; queryId: string }[]) => void;
   side: 'left' | 'right' | 'center';
 }
 
@@ -105,7 +104,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
 
   const processFiles = useCallback(async (acceptedFiles: File[]) => {
     setIsLoading(true);
-    const processedFiles: ProcessedFileWithAttempts[] = [];
+    const processedFiles: { name: string; content: string; queryId: string }[] = [];
     
     try {
       console.log('Processing files:', acceptedFiles);
@@ -211,7 +210,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
   }, [readFileAsText, extractFolderName, findDeepestJsonFolder, onFilesProcessed]);
 
   // Process a ZIP file
-  const processZipFile = useCallback(async (zipFile: File, processedFiles: ProcessedFileWithAttempts[]) => {
+  const processZipFile = useCallback(async (zipFile: File, processedFiles: { name: string; content: string; queryId: string }[]) => {
     console.log('Processing ZIP file:', zipFile.name);
     
     try {

@@ -11,9 +11,7 @@
     "clean": "rm -rf .next && rm -rf node_modules/.cache && rm -rf tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "html2canvas": "^1.4.1",
     "jq-web": "^0.6.1",
-    "jspdf": "^3.0.1",
     "jszip": "^3.10.1",
     "next": "15.2.2",
     "react": "^19.0.0",
