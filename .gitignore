@@ -82,3 +82,25 @@ test-multi-attempts/log_attempt_1.json
 test-multi-attempts/profile_attempt_0.json
 test-multi-attempts/profile_attempt_1.json
 test-single-query/profile.json
+
+# Added by Task Master AI
+# Logs
+logs
+*.log
+dev-debug.log
+# Dependency directories
+node_modules/
+# Environment variables
+.env
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+# Task files
+tasks.json
+tasks/ 
