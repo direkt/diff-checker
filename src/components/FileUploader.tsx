@@ -2,6 +2,7 @@ import React, { useCallback, useState, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 import { useError } from './ErrorToast';
+import { validateFileType, validateCompleteProfileData } from '@/utils/validation';
 
 interface FileUploaderProps {
   onFilesProcessed: (files: { name: string; content: string; queryId: string }[]) => void;

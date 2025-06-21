@@ -212,39 +212,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       }
     }
     
-    // Extract dataset profiles
-    const pdsDatasetPaths: string[] = [];
-    const vdsDatasetPaths: string[] = [];
-    const vdsDetails: { path: string; sql: string }[] = [];
-    
-    if (parsedJson.datasetProfile && Array.isArray(parsedJson.datasetProfile)) {
-      try {
-        // Process VDS paths exactly as the jq command would
-        vdsDatasetPaths.push(...parsedJson.datasetProfile
-          .filter((profile: DatasetProfile) => profile.type === 2)
-          .map((profile: DatasetProfile) => profile.datasetPath)
-          .sort());  // Add sorting to match jq output order
-        
-        // Process PDS paths
-        parsedJson.datasetProfile
-          .filter((profile: DatasetProfile) => profile.type === 1)
-          .forEach((profile: DatasetProfile) => {
-            pdsDatasetPaths.push(profile.datasetPath);
-          });
-        
-        // Process VDS details for SQL info
-        parsedJson.datasetProfile
-          .filter((profile: DatasetProfile) => profile.type === 2)
-          .forEach((profile: DatasetProfile) => {
-            vdsDetails.push({
-              path: profile.datasetPath,
-              sql: profile.sql || ''
-            });
-          });
-      } catch (error) {
-        console.error('Error processing dataset profiles:', error);
-      }
-    }
+    // Extract dataset profiles - optimized single-pass processing
+    const { pdsDatasetPaths, vdsDatasetPaths, vdsDetails } = processDatasetProfiles(parsedJson.datasetProfile);
     
     // Extract plan operators
     let planOperators = '';
