@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql';
 import { ProfileData } from '@/utils/jqUtils';
@@ -33,8 +33,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
     setPerformanceAnalysisCollapsed(prev => !prev);
   }, []);
 
-  // Custom styles to improve word-level diffing
-  const customStyles = {
+  // Memoized custom styles to improve word-level diffing
+  const customStyles = useMemo(() => ({
     variables: {
       light: {
         diffViewerBackground: '#fff',
@@ -58,7 +58,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
       borderRadius: '3px',
       display: 'inline-block',
     },
-  };
+  }), []);
 
   if (!leftData || !rightData) {
     return (

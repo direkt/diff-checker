@@ -8,6 +8,13 @@ import {
   validateScanData,
   validatePhaseData
 } from './typeGuards';
+import { 
+  PERFORMANCE_THRESHOLDS, 
+  OPERATOR_TYPE_MAP, 
+  SCAN_TYPES,
+  SEVERITY_LEVELS,
+  BOTTLENECK_TYPES
+} from '@/constants/thresholds';
 
 export interface DataScan {
   table_name: string;
@@ -142,6 +149,191 @@ interface DatasetProfile {
 interface PlanOperator {
   operatorName: string;
   plan: string;
+}
+
+// Optimized single-pass data processing function
+function processDatasetProfiles(datasetProfile: unknown): {
+  pdsDatasetPaths: string[];
+  vdsDatasetPaths: string[];
+  vdsDetails: { path: string; sql: string }[];
+} {
+  if (!Array.isArray(datasetProfile)) {
+    return {
+      pdsDatasetPaths: [],
+      vdsDatasetPaths: [],
+      vdsDetails: []
+    };
+  }
+
+  try {
+    const result = datasetProfile.reduce((acc, profile: DatasetProfile) => {
+      if (profile.type === 1) {
+        acc.pds.push(profile.datasetPath);
+      } else if (profile.type === 2) {
+        acc.vds.push(profile.datasetPath);
+        acc.vdsDetails.push({
+          path: profile.datasetPath,
+          sql: profile.sql || ''
+        });
+      }
+      return acc;
+    }, { pds: [] as string[], vds: [] as string[], vdsDetails: [] as { path: string; sql: string }[] });
+    
+    // Sort VDS paths to match jq output order
+    result.vds.sort();
+    
+    return {
+      pdsDatasetPaths: result.pds,
+      vdsDatasetPaths: result.vds,
+      vdsDetails: result.vdsDetails
+    };
+  } catch (error) {
+    console.error('Error processing dataset profiles:', error);
+    return {
+      pdsDatasetPaths: [],
+      vdsDatasetPaths: [],
+      vdsDetails: []
+    };
+  }
+}
+
+// Optimized data scans extraction combining all sources
+function extractDataScans(parsedJson: Record<string, unknown>, plan: string): DataScan[] {
+  const dataScans: DataScan[] = [];
+  const processedTables = new Set<string>(); // Avoid duplicates
+
+  try {
+    // Extract from direct dataScans array
+    if (parsedJson.dataScans && Array.isArray(parsedJson.dataScans)) {
+      parsedJson.dataScans.forEach((scan: unknown) => {
+        const validatedScan = validateScanData(scan);
+        if (!processedTables.has(validatedScan.table_name)) {
+          dataScans.push(validatedScan);
+          processedTables.add(validatedScan.table_name);
+        }
+      });
+    }
+
+    // Extract from tableScanProfiles
+    if (parsedJson.tableScanProfiles && Array.isArray(parsedJson.tableScanProfiles)) {
+      parsedJson.tableScanProfiles.forEach((scan: unknown) => {
+        const validatedScan = validateScanData(scan);
+        if (!processedTables.has(validatedScan.table_name)) {
+          dataScans.push(validatedScan);
+          processedTables.add(validatedScan.table_name);
+        }
+      });
+    }
+
+    // Extract from execution events
+    if (parsedJson.executionEvents && Array.isArray(parsedJson.executionEvents)) {
+      parsedJson.executionEvents.forEach((event: unknown) => {
+        const eventObj = safeObject(event);
+        if (eventObj.type === 'TABLE_SCAN' || eventObj.eventType === 'TABLE_SCAN' || 
+            (eventObj.type === 'TABLE_FUNCTION' || eventObj.eventType === 'TABLE_FUNCTION')) {
+          
+          // Special handling for scan type detection
+          let scanType = safeString(eventObj.scanType) || safeString(eventObj.scan_type);
+          if (!scanType || scanType === 'Unknown') {
+            const attributes = safeStringArray(eventObj.attributes);
+            if (attributes.includes('Type=[DATA_FILE_SCAN]')) {
+              scanType = SCAN_TYPES.DATA_FILE_SCAN;
+            } else if (eventObj.type === 'TABLE_FUNCTION') {
+              scanType = SCAN_TYPES.TABLE_FUNCTION;
+            } else {
+              scanType = SCAN_TYPES.UNKNOWN;
+            }
+          }
+          
+          const tableName = safeString(eventObj.tableName) || safeString(eventObj.table, 'Unknown');
+          if (!processedTables.has(tableName)) {
+            dataScans.push({
+              table_name: tableName,
+              scan_type: scanType,
+              filters: safeStringArray(eventObj.filters),
+              timestamp: safeString(eventObj.timestamp) || safeString(eventObj.time, ''),
+              rows_scanned: safeNumber(eventObj.rowsScanned) || safeNumber(eventObj.rows_scanned, 0),
+              duration_ms: safeNumber(eventObj.durationMs) || safeNumber(eventObj.duration_ms, 0),
+              table_function_filter: safeString(eventObj.tableFunctionFilter, '') || safeString(eventObj.table_function_filter, '')
+            });
+            processedTables.add(tableName);
+          }
+        }
+      });
+    }
+
+    // Extract from plan text
+    if (plan) {
+      // Look for data file scans
+      const dataFileScanMatches = plan.match(/Table Function Type=\[DATA_FILE_SCAN\].*?table=(\S+)/g);
+      dataFileScanMatches?.forEach((match: string) => {
+        const tableMatch = match.match(/table=(\S+)/);
+        const tableName = tableMatch ? tableMatch[1] : 'Unknown';
+        
+        if (!processedTables.has(tableName)) {
+          dataScans.push({
+            table_name: tableName,
+            scan_type: SCAN_TYPES.DATA_FILE_SCAN,
+            filters: [],
+            timestamp: '',
+            rows_scanned: 0,
+            duration_ms: 0
+          });
+          processedTables.add(tableName);
+        }
+      });
+      
+      // Look for TableFunction with filters
+      const tableFilterMatches = plan.match(/TableFunction\(filters=\[\[.*?\]\].*?table=(\S+)/g);
+      tableFilterMatches?.forEach((match: string) => {
+        const tableMatch = match.match(/table=(\S+)/);
+        const tableName = tableMatch ? tableMatch[1].replace(/,/g, '') : 'Unknown';
+        const filterMatch = match.match(/filters=\[\[(.*?)\]\]/);
+        const filterExpression = filterMatch ? filterMatch[1] : '';
+        
+        const existingScan = dataScans.find(scan => scan.table_name === tableName);
+        if (existingScan) {
+          existingScan.table_function_filter = filterExpression;
+        } else if (!processedTables.has(tableName)) {
+          dataScans.push({
+            table_name: tableName,
+            scan_type: SCAN_TYPES.TABLE_FUNCTION,
+            filters: [],
+            timestamp: '',
+            rows_scanned: 0,
+            duration_ms: 0,
+            table_function_filter: filterExpression
+          });
+          processedTables.add(tableName);
+        }
+      });
+      
+      // Look for other TableFunction patterns
+      const moreFunctionMatches = plan.match(/TableFunction\(.*?columns=/g);
+      moreFunctionMatches?.forEach((match: string) => {
+        const tableMatch = match.match(/table=(\S+)/);
+        if (!tableMatch) return;
+        
+        const tableName = tableMatch[1].replace(/,/g, '');
+        if (!processedTables.has(tableName)) {
+          dataScans.push({
+            table_name: tableName,
+            scan_type: SCAN_TYPES.TABLE_FUNCTION,
+            filters: [],
+            timestamp: '',
+            rows_scanned: 0,
+            duration_ms: 0,
+            table_function_filter: match
+          });
+          processedTables.add(tableName);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error extracting data scans:', error);
+  }
+
+  return dataScans;
 }
 
 export async function extractProfileData(jsonContent: string): Promise<ProfileData> {
@@ -327,131 +519,8 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       console.error('Error extracting reflection data:', error);
     }
     
-    // Extract data scans
-    const dataScans: DataScan[] = [];
-    
-    // Try to extract from various possible locations in the JSON
-    if (parsedJson.dataScans && Array.isArray(parsedJson.dataScans)) {
-      dataScans.push(...parsedJson.dataScans);
-    } else if (parsedJson.tableScanProfiles && Array.isArray(parsedJson.tableScanProfiles)) {
-      // Alternative format
-      parsedJson.tableScanProfiles.forEach((scan: unknown) => {
-        dataScans.push(validateScanData(scan));
-      });
-    }
-    
-    // Also look for scans in execution events, which might contain table scan info
-    if (parsedJson.executionEvents && Array.isArray(parsedJson.executionEvents)) {
-      parsedJson.executionEvents.forEach((event: unknown) => {
-        const eventObj = safeObject(event);
-        if (eventObj.type === 'TABLE_SCAN' || eventObj.eventType === 'TABLE_SCAN' || 
-            (eventObj.type === 'TABLE_FUNCTION' || eventObj.eventType === 'TABLE_FUNCTION')) {
-          
-          // Special handling for scan type detection
-          let scanType = safeString(eventObj.scanType) || safeString(eventObj.scan_type);
-          if (!scanType || scanType === 'Unknown') {
-            const attributes = safeStringArray(eventObj.attributes);
-            if (attributes.includes('Type=[DATA_FILE_SCAN]')) {
-              scanType = 'DATA_FILE_SCAN';
-            } else if (eventObj.type === 'TABLE_FUNCTION') {
-              scanType = 'TABLE_FUNCTION';
-            } else {
-              scanType = 'Unknown';
-            }
-          }
-          
-          dataScans.push({
-            table_name: safeString(eventObj.tableName) || safeString(eventObj.table, 'Unknown'),
-            scan_type: scanType,
-            filters: safeStringArray(eventObj.filters),
-            timestamp: safeString(eventObj.timestamp) || safeString(eventObj.time, ''),
-            rows_scanned: safeNumber(eventObj.rowsScanned) || safeNumber(eventObj.rows_scanned, 0),
-            duration_ms: safeNumber(eventObj.durationMs) || safeNumber(eventObj.duration_ms, 0),
-            table_function_filter: safeString(eventObj.tableFunctionFilter, '') || safeString(eventObj.table_function_filter, '')
-          });
-        }
-      });
-    }
-    
-    // Extract table functions and data file scans from the plan text
-    if (plan) {
-      // Look for data file scans
-      const dataFileScanMatches = plan.match(/Table Function Type=\[DATA_FILE_SCAN\].*?table=(\S+)/g);
-      if (dataFileScanMatches) {
-        dataFileScanMatches.forEach((match: string) => {
-          // Extract table name from the match
-          const tableMatch = match.match(/table=(\S+)/);
-          const tableName = tableMatch ? tableMatch[1] : 'Unknown';
-          
-          dataScans.push({
-            table_name: tableName,
-            scan_type: 'DATA_FILE_SCAN',
-            filters: [],
-            timestamp: '',
-            rows_scanned: 0,
-            duration_ms: 0
-          });
-        });
-      }
-      
-      // Look for TableFunction with filters
-      const tableFilterMatches = plan.match(/TableFunction\(filters=\[\[.*?\]\].*?table=(\S+)/g);
-      if (tableFilterMatches) {
-        tableFilterMatches.forEach((match: string) => {
-          // Extract table name
-          const tableMatch = match.match(/table=(\S+)/);
-          const tableName = tableMatch ? tableMatch[1].replace(/,/g, '') : 'Unknown';
-          
-          // Extract filter expression
-          const filterMatch = match.match(/filters=\[\[(.*?)\]\]/);
-          const filterExpression = filterMatch ? filterMatch[1] : '';
-          
-          // Check if we already have this table in dataScans
-          const existingScan = dataScans.find(scan => scan.table_name === tableName);
-          
-          if (existingScan) {
-            // Update existing scan with table function filter
-            existingScan.table_function_filter = filterExpression;
-          } else {
-            // Add new scan
-            dataScans.push({
-              table_name: tableName,
-              scan_type: 'TABLE_FUNCTION',
-              filters: [],
-              timestamp: '',
-              rows_scanned: 0,
-              duration_ms: 0,
-              table_function_filter: filterExpression
-            });
-          }
-        });
-      }
-      
-      // Also look for any other TableFunction patterns that might have different formats
-      const moreFunctionMatches = plan.match(/TableFunction\(.*?columns=/g);
-      if (moreFunctionMatches) {
-        moreFunctionMatches.forEach((match: string) => {
-          // Try to extract a table name if possible
-          const tableMatch = match.match(/table=(\S+)/);
-          if (!tableMatch) return; // Skip if no table name found
-          
-          const tableName = tableMatch[1].replace(/,/g, '');
-          
-          // Skip if we already processed this table function
-          if (dataScans.some(scan => scan.table_name === tableName)) return;
-          
-          dataScans.push({
-            table_name: tableName,
-            scan_type: 'TABLE_FUNCTION',
-            filters: [],
-            timestamp: '',
-            rows_scanned: 0,
-            duration_ms: 0,
-            table_function_filter: match
-          });
-        });
-      }
-    }
+    // Extract data scans - optimized single collection
+    const dataScans: DataScan[] = extractDataScans(parsedJson, plan);
     
     // Extract jsonPlan if present
     const jsonPlan = parsedJson.jsonPlan ? parsedJson.jsonPlan : undefined;
@@ -605,25 +674,25 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
           // Calculate throughput
           let throughputRecordsPerSec: number | undefined;
           if (processNanos > 0 && totalInputRecords > 0) {
-            throughputRecordsPerSec = Math.round(totalInputRecords / (processNanos / 1_000_000_000));
+            throughputRecordsPerSec = Math.round(totalInputRecords / (processNanos / PERFORMANCE_THRESHOLDS.NANOS_TO_SECONDS));
           }
           
-          const totalMs = Math.round((setupNanos + processNanos + waitNanos) / 1_000_000);
+          const totalMs = Math.round((setupNanos + processNanos + waitNanos) / PERFORMANCE_THRESHOLDS.NANOS_TO_MILLIS);
           
           operators.push({
             operatorId,
             operatorType: getOperatorTypeName(operatorType),
             operatorName: getOperatorTypeName(operatorType),
-            setupMs: Math.round(setupNanos / 1_000_000),
-            processMs: Math.round(processNanos / 1_000_000),
-            waitMs: Math.round(waitNanos / 1_000_000),
+            setupMs: Math.round(setupNanos / PERFORMANCE_THRESHOLDS.NANOS_TO_MILLIS),
+            processMs: Math.round(processNanos / PERFORMANCE_THRESHOLDS.NANOS_TO_MILLIS),
+            waitMs: Math.round(waitNanos / PERFORMANCE_THRESHOLDS.NANOS_TO_MILLIS),
             totalMs,
             fragmentId: `${majorFragmentId}-${minorFragmentId}`,
             inputRecords: totalInputRecords,
             outputRecords,
             inputBytes: totalInputBytes,
             outputBytes,
-            peakMemoryMB: Math.round(peakMemory / (1024 * 1024)),
+            peakMemoryMB: Math.round(peakMemory / PERFORMANCE_THRESHOLDS.BYTES_TO_MB),
             selectivity,
             throughputRecordsPerSec,
             operatorMetrics: Object.keys(operatorMetrics).length > 0 ? operatorMetrics : undefined,
@@ -637,10 +706,10 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
       }
     }
 
-    // Sort operators by total time and get top 10
+    // Sort operators by total time and get top operators
     const topOperators = operators
       .sort((a, b) => (b.totalMs as number) - (a.totalMs as number))
-      .slice(0, 10)
+      .slice(0, PERFORMANCE_THRESHOLDS.MAX_TOP_OPERATORS)
       .map(op => {
         // Remove internal fields before returning
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -676,16 +745,19 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
     
     // 1. I/O Bottlenecks (high wait times)
     const highWaitOperators = operators.filter(op => 
-      (op._waitNanos as number) > (op._processNanos as number) && (op._waitNanos as number) > 1_000_000 && (op._totalNanos as number) > 0
+      (op._waitNanos as number) > (op._processNanos as number) && 
+      (op._waitNanos as number) > PERFORMANCE_THRESHOLDS.MIN_WAIT_TIME_NANOS && 
+      (op._totalNanos as number) > 0
     ).sort((a, b) => (b._waitNanos as number) - (a._waitNanos as number));
     
     if (highWaitOperators.length > 0) {
       const topWaitOp = highWaitOperators[0];
       const waitPercentage = Math.round(((topWaitOp._waitNanos as number) / (topWaitOp._totalNanos as number)) * 100);
       bottlenecks.push({
-        type: 'I/O',
+        type: BOTTLENECK_TYPES.IO,
         description: `High I/O wait time detected in Op ${topWaitOp.operatorId} (${topWaitOp.operatorName})`,
-        severity: waitPercentage > 50 ? 'High' : waitPercentage > 25 ? 'Medium' : 'Low',
+        severity: waitPercentage > PERFORMANCE_THRESHOLDS.HIGH_WAIT_PERCENTAGE ? SEVERITY_LEVELS.HIGH : 
+                 waitPercentage > PERFORMANCE_THRESHOLDS.MEDIUM_WAIT_PERCENTAGE ? SEVERITY_LEVELS.MEDIUM : SEVERITY_LEVELS.LOW,
         operatorId: topWaitOp.operatorId as number,
         recommendation: 'Consider optimizing storage access, partitioning strategy, or predicate pushdown',
         details: `${waitPercentage}% of execution time spent waiting (${formatTime(topWaitOp._waitNanos as number)})`
@@ -694,16 +766,18 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
 
     // 2. Selectivity Issues (low selectivity filters)
     const lowSelectivityOperators = operators.filter(op => 
-      op.selectivity !== undefined && (op.selectivity as number) < 0.01 && (op.inputRecords as number) > 1000
+      op.selectivity !== undefined && 
+      (op.selectivity as number) < PERFORMANCE_THRESHOLDS.POOR_SELECTIVITY && 
+      (op.inputRecords as number) > PERFORMANCE_THRESHOLDS.LOW_RECORD_COUNT
     ).sort((a, b) => (a.selectivity as number || 0) - (b.selectivity as number || 0));
     
     if (lowSelectivityOperators.length > 0) {
       const worstSelectivity = lowSelectivityOperators[0];
       const selectivityPct = ((worstSelectivity.selectivity as number) * 100).toFixed(3);
       bottlenecks.push({
-        type: 'Selectivity',
+        type: BOTTLENECK_TYPES.SELECTIVITY,
         description: `Poor filter selectivity in Op ${worstSelectivity.operatorId} (${worstSelectivity.operatorName})`,
-        severity: (worstSelectivity.selectivity as number) < 0.001 ? 'High' : 'Medium',
+        severity: (worstSelectivity.selectivity as number) < PERFORMANCE_THRESHOLDS.VERY_POOR_SELECTIVITY ? SEVERITY_LEVELS.HIGH : SEVERITY_LEVELS.MEDIUM,
         operatorId: worstSelectivity.operatorId as number,
         recommendation: 'Improve predicate pushdown, add better indexes, or optimize query filters',
         details: `${selectivityPct}% selectivity (${(worstSelectivity.inputRecords as number).toLocaleString()} → ${(worstSelectivity.outputRecords as number).toLocaleString()} records)`
@@ -711,15 +785,16 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
     }
 
     // 3. Memory Bottlenecks
-    const highMemoryOperators = operators.filter(op => (op.peakMemoryMB as number) > 100)
+    const highMemoryOperators = operators.filter(op => (op.peakMemoryMB as number) > PERFORMANCE_THRESHOLDS.LOW_MEMORY_MB)
       .sort((a, b) => (b.peakMemoryMB as number) - (a.peakMemoryMB as number));
     
     if (highMemoryOperators.length > 0) {
       const topMemoryOp = highMemoryOperators[0];
       bottlenecks.push({
-        type: 'Memory',
+        type: BOTTLENECK_TYPES.MEMORY,
         description: `High memory usage in Op ${topMemoryOp.operatorId} (${topMemoryOp.operatorName})`,
-        severity: (topMemoryOp.peakMemoryMB as number) > 1000 ? 'High' : (topMemoryOp.peakMemoryMB as number) > 500 ? 'Medium' : 'Low',
+        severity: (topMemoryOp.peakMemoryMB as number) > PERFORMANCE_THRESHOLDS.HIGH_MEMORY_MB ? SEVERITY_LEVELS.HIGH : 
+                 (topMemoryOp.peakMemoryMB as number) > PERFORMANCE_THRESHOLDS.MEDIUM_MEMORY_MB ? SEVERITY_LEVELS.MEDIUM : SEVERITY_LEVELS.LOW,
         operatorId: topMemoryOp.operatorId as number,
         recommendation: 'Consider increasing memory allocation or optimizing data processing',
         details: `${topMemoryOp.peakMemoryMB}MB peak memory allocation`
@@ -727,17 +802,18 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
     }
 
     // 4. High Record Volume Analysis
-    const highRecordOperators = operators.filter(op => (op.inputRecords as number) > 1_000_000)
+    const highRecordOperators = operators.filter(op => (op.inputRecords as number) > PERFORMANCE_THRESHOLDS.HIGH_RECORD_COUNT)
       .sort((a, b) => (b.inputRecords as number) - (a.inputRecords as number));
     
     if (highRecordOperators.length > 0) {
       const topRecordOp = highRecordOperators[0];
       const throughput = (topRecordOp.throughputRecordsPerSec as number) || 0;
-      if (throughput < 100000) { // Less than 100K records/sec might indicate CPU bottleneck
+      if (throughput < PERFORMANCE_THRESHOLDS.HIGH_THROUGHPUT_RECORDS_PER_SEC) {
         bottlenecks.push({
-          type: 'CPU',
+          type: BOTTLENECK_TYPES.CPU,
           description: `Low throughput in high-volume Op ${topRecordOp.operatorId} (${topRecordOp.operatorName})`,
-          severity: throughput < 10000 ? 'High' : throughput < 50000 ? 'Medium' : 'Low',
+          severity: throughput < PERFORMANCE_THRESHOLDS.CRITICAL_LOW_THROUGHPUT_RECORDS_PER_SEC ? SEVERITY_LEVELS.HIGH : 
+                   throughput < PERFORMANCE_THRESHOLDS.LOW_THROUGHPUT_RECORDS_PER_SEC ? SEVERITY_LEVELS.MEDIUM : SEVERITY_LEVELS.LOW,
           operatorId: topRecordOp.operatorId as number,
           recommendation: 'Consider query optimization, better parallelization, or more CPU resources',
           details: `Processing ${formatRecords(topRecordOp.inputRecords as number)} records at ${throughput.toLocaleString()} rec/sec`
@@ -749,7 +825,7 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
     const totalRecordsProcessed = operators.reduce((sum, op) => sum + (op.inputRecords as number), 0);
     const totalInputBytes = operators.reduce((sum, op) => sum + (op.inputBytes as number), 0);
     const totalOutputBytes = operators.reduce((sum, op) => sum + (op.outputBytes as number), 0);
-    const totalDataSizeGB = totalInputBytes / (1024 * 1024 * 1024);
+    const totalDataSizeGB = totalInputBytes / PERFORMANCE_THRESHOLDS.BYTES_TO_GB;
     const avgThroughputRecordsPerSec = executionTimeMs > 0 ? Math.round(totalRecordsProcessed / (executionTimeMs / 1000)) : 0;
     
     // Calculate compression ratio if we have both input and output bytes
@@ -786,36 +862,20 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
 
 // Helper function to format records (similar to Python script)
 function formatRecords(records: number): string {
-  if (records < 1000) return records.toString();
-  if (records < 1_000_000) return `${(records / 1000).toFixed(1)}K`;
-  if (records < 1_000_000_000) return `${(records / 1_000_000).toFixed(1)}M`;
+  if (records < PERFORMANCE_THRESHOLDS.LOW_RECORD_COUNT) return records.toString();
+  if (records < PERFORMANCE_THRESHOLDS.HIGH_RECORD_COUNT) return `${(records / PERFORMANCE_THRESHOLDS.LOW_RECORD_COUNT).toFixed(1)}K`;
+  if (records < 1_000_000_000) return `${(records / PERFORMANCE_THRESHOLDS.HIGH_RECORD_COUNT).toFixed(1)}M`;
   return `${(records / 1_000_000_000).toFixed(1)}B`;
 }
 
 // Helper function to format time (similar to Python script)
 function formatTime(nanos: number): string {
-  if (nanos < 1000) return `${nanos}ns`;
-  if (nanos < 1_000_000) return `${(nanos / 1000).toFixed(2)}μs`;
-  if (nanos < 1_000_000_000) return `${(nanos / 1_000_000).toFixed(2)}ms`;
-  return `${(nanos / 1_000_000_000).toFixed(2)}s`;
+  if (nanos < PERFORMANCE_THRESHOLDS.MICROS_TO_NANOS) return `${nanos}ns`;
+  if (nanos < PERFORMANCE_THRESHOLDS.NANOS_TO_MILLIS) return `${(nanos / PERFORMANCE_THRESHOLDS.MICROS_TO_NANOS).toFixed(2)}μs`;
+  if (nanos < PERFORMANCE_THRESHOLDS.NANOS_TO_SECONDS) return `${(nanos / PERFORMANCE_THRESHOLDS.NANOS_TO_MILLIS).toFixed(2)}ms`;
+  return `${(nanos / PERFORMANCE_THRESHOLDS.NANOS_TO_SECONDS).toFixed(2)}s`;
 }
 
 function getOperatorTypeName(operatorType: number): string {
-  // Map operator type numbers to names based on Dremio operator types
-  const operatorTypeMap: { [key: number]: string } = {
-    1: 'Screen',
-    2: 'Project',
-    3: 'Filter',
-    4: 'Union',
-    5: 'HashJoin',
-    6: 'MergeJoin',
-    7: 'HashAggregate',
-    8: 'StreamingAggregate',
-    9: 'Sort',
-    10: 'Limit',
-    53: 'TableFunction',
-    // Add more mappings as needed
-  };
-  
-  return operatorTypeMap[operatorType] || `Operator_${operatorType}`;
+  return OPERATOR_TYPE_MAP[operatorType as keyof typeof OPERATOR_TYPE_MAP] || `Operator_${operatorType}`;
 }
