@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import { ErrorProvider } from "@/components/ErrorToast";
 
 const geist = Geist({
   variable: "--font-geist",
@@ -20,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geist.variable} antialiased`}>
-        {children}
+        <ErrorProvider>
+          {children}
+        </ErrorProvider>
       </body>
     </html>
   );

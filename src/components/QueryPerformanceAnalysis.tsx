@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { PerformanceMetrics } from '@/utils/jqUtils';
 
 interface QueryPerformanceAnalysisProps {
@@ -27,39 +27,39 @@ const QueryPerformanceAnalysis: React.FC<QueryPerformanceAnalysisProps> = ({
     }
   };
 
-  const formatTime = (ms: number): string => {
+  const formatTime = useCallback((ms: number): string => {
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
     return `${(ms / 60000).toFixed(2)}m`;
-  };
+  }, []);
 
-  const formatBytes = (bytes: number): string => {
+  const formatBytes = useCallback((bytes: number): string => {
     if (bytes < 1024) return `${bytes}B`;
     if (bytes < 1024**2) return `${(bytes/1024).toFixed(2)}KB`;
     if (bytes < 1024**3) return `${(bytes/(1024**2)).toFixed(2)}MB`;
     return `${(bytes/(1024**3)).toFixed(2)}GB`;
-  };
+  }, []);
 
-  const formatNumber = (num: number): string => {
+  const formatNumber = useCallback((num: number): string => {
     return num.toLocaleString();
-  };
+  }, []);
 
-  const formatRecords = (records: number): string => {
+  const formatRecords = useCallback((records: number): string => {
     if (records < 1000) return records.toString();
     if (records < 1_000_000) return `${(records / 1000).toFixed(1)}K`;
     if (records < 1_000_000_000) return `${(records / 1_000_000).toFixed(1)}M`;
     return `${(records / 1_000_000_000).toFixed(1)}B`;
-  };
+  }, []);
 
-  const getSeverityColor = (severity: 'High' | 'Medium' | 'Low'): string => {
+  const getSeverityColor = useCallback((severity: 'High' | 'Medium' | 'Low'): string => {
     switch (severity) {
       case 'High': return 'text-red-600 bg-red-50 border-red-200';
       case 'Medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
       case 'Low': return 'text-blue-600 bg-blue-50 border-blue-200';
     }
-  };
+  }, []);
 
-  const getBottleneckIcon = (type: string): string => {
+  const getBottleneckIcon = useCallback((type: string): string => {
     switch (type) {
       case 'I/O': return '💾';
       case 'CPU': return '⚡';
@@ -67,7 +67,7 @@ const QueryPerformanceAnalysis: React.FC<QueryPerformanceAnalysisProps> = ({
       case 'Selectivity': return '🎯';
       default: return '⚠️';
     }
-  };
+  }, []);
 
   return (
     <div className="border rounded-lg overflow-hidden bg-white">

@@ -1,4 +1,13 @@
 import { validateQueryPhases, QueryPhaseValidationResult } from './queryPhaseValidator';
+import { 
+  safeString, 
+  safeNumber, 
+  safeStringArray, 
+  safeObject, 
+  validateQueryId,
+  validateScanData,
+  validatePhaseData
+} from './typeGuards';
 
 export interface DataScan {
   table_name: string;
@@ -357,34 +366,39 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       dataScans.push(...parsedJson.dataScans);
     } else if (parsedJson.tableScanProfiles && Array.isArray(parsedJson.tableScanProfiles)) {
       // Alternative format
-      parsedJson.tableScanProfiles.forEach((scan: Record<string, unknown>) => {
-        dataScans.push({
-          table_name: (scan.tableName as string) || (scan.table_name as string) || 'Unknown',
-          scan_type: (scan.scanType as string) || (scan.scan_type as string) || 'Unknown',
-          filters: (scan.filters as string[]) || [],
-          timestamp: (scan.timestamp as string) || '',
-          rows_scanned: (scan.rowsScanned as number) || (scan.rows_scanned as number) || 0,
-          duration_ms: (scan.durationMs as number) || (scan.duration_ms as number) || 0,
-          table_function_filter: (scan.tableFunctionFilter as string) || (scan.table_function_filter as string)
-        });
+      parsedJson.tableScanProfiles.forEach((scan: unknown) => {
+        dataScans.push(validateScanData(scan));
       });
     }
     
     // Also look for scans in execution events, which might contain table scan info
     if (parsedJson.executionEvents && Array.isArray(parsedJson.executionEvents)) {
-      parsedJson.executionEvents.forEach((event: Record<string, unknown>) => {
-        if (event.type === 'TABLE_SCAN' || event.eventType === 'TABLE_SCAN' || 
-            (event.type === 'TABLE_FUNCTION' || event.eventType === 'TABLE_FUNCTION')) {
+      parsedJson.executionEvents.forEach((event: unknown) => {
+        const eventObj = safeObject(event);
+        if (eventObj.type === 'TABLE_SCAN' || eventObj.eventType === 'TABLE_SCAN' || 
+            (eventObj.type === 'TABLE_FUNCTION' || eventObj.eventType === 'TABLE_FUNCTION')) {
+          
+          // Special handling for scan type detection
+          let scanType = safeString(eventObj.scanType) || safeString(eventObj.scan_type);
+          if (!scanType || scanType === 'Unknown') {
+            const attributes = safeStringArray(eventObj.attributes);
+            if (attributes.includes('Type=[DATA_FILE_SCAN]')) {
+              scanType = 'DATA_FILE_SCAN';
+            } else if (eventObj.type === 'TABLE_FUNCTION') {
+              scanType = 'TABLE_FUNCTION';
+            } else {
+              scanType = 'Unknown';
+            }
+          }
+          
           dataScans.push({
-            table_name: (event.tableName as string) || (event.table as string) || 'Unknown',
-            scan_type: (event.scanType as string) || (event.scan_type as string) || 
-                      ((event.attributes as string[])?.includes('Type=[DATA_FILE_SCAN]') ? 'DATA_FILE_SCAN' :
-                       event.type === 'TABLE_FUNCTION' ? 'TABLE_FUNCTION' : 'Unknown'),
-            filters: (event.filters as string[]) || [],
-            timestamp: (event.timestamp as string) || (event.time as string) || '',
-            rows_scanned: (event.rowsScanned as number) || (event.rows_scanned as number) || 0,
-            duration_ms: (event.durationMs as number) || (event.duration_ms as number) || 0,
-            table_function_filter: (event.tableFunctionFilter as string) || (event.table_function_filter as string)
+            table_name: safeString(eventObj.tableName) || safeString(eventObj.table, 'Unknown'),
+            scan_type: scanType,
+            filters: safeStringArray(eventObj.filters),
+            timestamp: safeString(eventObj.timestamp) || safeString(eventObj.time, ''),
+            rows_scanned: safeNumber(eventObj.rowsScanned) || safeNumber(eventObj.rows_scanned, 0),
+            duration_ms: safeNumber(eventObj.durationMs) || safeNumber(eventObj.duration_ms, 0),
+            table_function_filter: safeString(eventObj.tableFunctionFilter, '') || safeString(eventObj.table_function_filter, '')
           });
         }
       });
@@ -528,10 +542,10 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
 function extractPerformanceMetrics(parsedJson: Record<string, unknown>): PerformanceMetrics | undefined {
   try {
     // Extract basic timing information
-    const startTime = (parsedJson.start as number) || 0;
-    const endTime = (parsedJson.end as number) || 0;
-    const planningStart = (parsedJson.planningStart as number) || 0;
-    const planningEnd = (parsedJson.planningEnd as number) || 0;
+    const startTime = safeNumber(parsedJson.start, 0);
+    const endTime = safeNumber(parsedJson.end, 0);
+    const planningStart = safeNumber(parsedJson.planningStart, 0);
+    const planningEnd = safeNumber(parsedJson.planningEnd, 0);
     
     const totalQueryTimeMs = endTime - startTime;
     const planningTimeMs = planningEnd - planningStart;
@@ -539,19 +553,21 @@ function extractPerformanceMetrics(parsedJson: Record<string, unknown>): Perform
 
     // Extract query info
     const queryInfo = {
-      queryId: (parsedJson.id as { part1?: string })?.part1 || 'Unknown',
-      user: (parsedJson.user as string) || 'Unknown',
-      dremioVersion: (parsedJson.dremioVersion as string) || (parsedJson.clusterInfo as { version?: { version?: string } })?.version?.version
+      queryId: validateQueryId(parsedJson.id),
+      user: safeString(parsedJson.user, 'Unknown'),
+      dremioVersion: safeString(parsedJson.dremioVersion) || 
+        safeString(safeObject(safeObject(parsedJson.clusterInfo).version).version, 'Unknown')
     };
 
     // Extract phases
     const phases: PerformanceMetrics['phases'] = [];
-    const planPhases = (parsedJson.planPhases as Array<{ phaseName?: string; durationMillis?: number }>) || [];
+    const planPhases = Array.isArray(parsedJson.planPhases) ? parsedJson.planPhases : [];
     
     for (const phase of planPhases) {
+      const validatedPhase = validatePhaseData(phase);
       phases.push({
-        phaseName: phase.phaseName || 'Unknown',
-        durationMs: phase.durationMillis || 0
+        phaseName: validatedPhase.phaseName,
+        durationMs: validatedPhase.durationMillis
       });
     }
 

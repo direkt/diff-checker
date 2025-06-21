@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
+import { useError } from './ErrorToast';
 
 interface FileUploaderProps {
   onFilesProcessed: (files: { name: string; content: string; queryId: string }[]) => void;
@@ -16,6 +17,7 @@ declare module 'react' {
 }
 
 const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) => {
+  const { showError } = useError();
   const [isLoading, setIsLoading] = useState(false);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -111,7 +113,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
       
       if (!acceptedFiles || acceptedFiles.length === 0) {
         console.error('No files were provided for processing');
-        alert('No files were selected. Please try again.');
+        showError('No files were selected. Please try again.', 'warning');
         setIsLoading(false);
         return;
       }
@@ -198,11 +200,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
       if (processedFiles.length > 0) {
         onFilesProcessed(processedFiles);
       } else {
-        alert('No valid JSON files were found. Please check your files and try again.');
+        showError('No valid JSON files were found. Please check your files and try again.', 'error');
       }
     } catch (error) {
       console.error('Error processing files:', error);
-      alert('Error processing files. Please try again.');
+      showError('Error processing files. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -307,7 +309,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
       }
     } catch (error) {
       console.error('Error processing ZIP file:', error);
-      alert('Error processing ZIP file. Please check if it\'s a valid ZIP archive.');
+      showError('Error processing ZIP file. Please check if it\'s a valid ZIP archive.', 'error');
     }
   }, []);
 
@@ -319,11 +321,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
           await processFiles(acceptedFiles);
         } else {
           console.warn('No files were dropped or accepted');
-          alert('No valid files were detected. Please try again with JSON or ZIP files.');
+          showError('No valid files were detected. Please try again with JSON or ZIP files.', 'warning');
         }
       } catch (error) {
         console.error('Error handling dropped files:', error);
-        alert('There was an error processing the dropped files. Please try again.');
+        showError('There was an error processing the dropped files. Please try again.', 'error');
       }
     },
     [processFiles]
@@ -342,16 +344,16 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
       
       // Check for specific rejection reasons
       if (fileRejections.some(f => f.errors.some(e => e.code === 'file-too-large'))) {
-        alert('Some files were too large. Maximum file size is 50MB.');
+        showError('Some files were too large. Maximum file size is 50MB.', 'warning');
       } else if (fileRejections.some(f => f.errors.some(e => e.code === 'file-invalid-type'))) {
-        alert('Some files had invalid types. Only JSON and ZIP files are accepted.');
+        showError('Some files had invalid types. Only JSON and ZIP files are accepted.', 'warning');
       } else {
-        alert('Some files were rejected. Please check file types and sizes.');
+        showError('Some files were rejected. Please check file types and sizes.', 'warning');
       }
     },
     onError: (error) => {
       console.error('Dropzone error:', error);
-      alert('There was an error with the file upload. Please try again.');
+      showError('There was an error with the file upload. Please try again.', 'error');
     }
   });
 
@@ -363,11 +365,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesProcessed, side }) =
         await processFiles(Array.from(files));
       } else {
         console.warn('No files selected in folder upload');
-        alert('No files were found in the selected folder. Please try again.');
+        showError('No files were found in the selected folder. Please try again.', 'warning');
       }
     } catch (error) {
       console.error('Error handling folder upload:', error);
-      alert('There was an error processing the folder. Please try again.');
+      showError('There was an error processing the folder. Please try again.', 'error');
     }
   }, [processFiles]);
 

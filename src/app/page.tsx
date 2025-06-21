@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import FileUploader from "@/components/FileUploader";
 import DiffViewer from "@/components/DiffViewer";
 import QueryPhaseValidation from "@/components/QueryPhaseValidation";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { useError } from "@/components/ErrorToast";
 import { extractProfileData, ProfileData } from "@/utils/jqUtils";
 
 interface ProcessedFile {
@@ -19,13 +21,13 @@ interface QueryGroup {
 }
 
 export default function Home() {
+  const { showError } = useError();
   const [leftData, setLeftData] = useState<ProfileData | null>(null);
   const [rightData, setRightData] = useState<ProfileData | null>(null);
   const [selectedSection, setSelectedSection] = useState<string>("plan");
   
   // Use a single files array for both sides
   const [allFiles, setAllFiles] = useState<ProcessedFile[]>([]);
-  const [queryGroups, setQueryGroups] = useState<QueryGroup[]>([]);
   
   const [selectedLeftQueryId, setSelectedLeftQueryId] = useState<string>("");
   const [selectedRightQueryId, setSelectedRightQueryId] = useState<string>("");
@@ -34,32 +36,31 @@ export default function Home() {
   const [showWordDiff, setShowWordDiff] = useState(true);
   const [optionsOpen, setOptionsOpen] = useState(true); // Changed from false to true to expand by default
 
-  // Group files by query ID whenever files change
-  useEffect(() => {
-    const groupFilesByQueryId = (files: ProcessedFile[]): QueryGroup[] => {
-      console.log('Grouping files by queryId:', files);
-      
-      const queryMap: Record<string, ProcessedFile[]> = {};
-      
-      // Group files by queryId (which is now the folder name)
-      files.forEach(file => {
-        if (!queryMap[file.queryId]) {
-          queryMap[file.queryId] = [];
-        }
-        queryMap[file.queryId].push(file);
-      });
-      
-      // Convert map to array of QueryGroup objects
-      return Object.entries(queryMap).map(([queryId, files]) => ({
-        queryId,
-        folderName: queryId, // Using queryId as the folderName
-        files
-      }));
-    };
+  // Group files by query ID using useMemo for better performance
+  const queryGroups = useMemo((): QueryGroup[] => {
+    if (allFiles.length === 0) return [];
     
-    const groups = groupFilesByQueryId(allFiles);
+    console.log('Grouping files by queryId:', allFiles);
+    
+    const queryMap: Record<string, ProcessedFile[]> = {};
+    
+    // Group files by queryId (which is now the folder name)
+    allFiles.forEach(file => {
+      if (!queryMap[file.queryId]) {
+        queryMap[file.queryId] = [];
+      }
+      queryMap[file.queryId].push(file);
+    });
+    
+    // Convert map to array of QueryGroup objects
+    const groups = Object.entries(queryMap).map(([queryId, files]) => ({
+      queryId,
+      folderName: queryId, // Using queryId as the folderName
+      files
+    }));
+    
     console.log('Generated query groups:', groups);
-    setQueryGroups(groups);
+    return groups;
   }, [allFiles]);
 
   // Set default selections when query groups change
@@ -67,16 +68,18 @@ export default function Home() {
     if (queryGroups.length === 0) return;
     
     console.log('Setting default selections from query groups:', queryGroups);
-    console.log('Current selections - Left:', selectedLeftQueryId, 'Right:', selectedRightQueryId);
     
-    // Only set the left query ID if it's not set or if the current selection doesn't exist in the groups
-    if (!selectedLeftQueryId || !queryGroups.some(g => g.queryId === selectedLeftQueryId)) {
+    // Check if current selections are valid, if not, set defaults
+    const leftQueryExists = queryGroups.some(g => g.queryId === selectedLeftQueryId);
+    const rightQueryExists = queryGroups.some(g => g.queryId === selectedRightQueryId);
+    
+    // Only update if current selections are invalid or empty
+    if (!selectedLeftQueryId || !leftQueryExists) {
       console.log('Setting left query ID to:', queryGroups[0].queryId);
       setSelectedLeftQueryId(queryGroups[0].queryId);
     }
     
-    // Only set the right query ID if it's not set or if the current selection doesn't exist in the groups
-    if (!selectedRightQueryId || !queryGroups.some(g => g.queryId === selectedRightQueryId)) {
+    if (!selectedRightQueryId || !rightQueryExists) {
       // If there are at least 2 query IDs, select the second one for the right side
       // Otherwise, use the same query ID for both sides
       if (queryGroups.length > 1) {
@@ -87,7 +90,7 @@ export default function Home() {
         setSelectedRightQueryId(queryGroups[0].queryId);
       }
     }
-  }, [queryGroups, selectedLeftQueryId, selectedRightQueryId]);
+  }, [queryGroups]); // Remove selectedLeftQueryId and selectedRightQueryId to prevent infinite loop
 
   // Process file for left side when selection changes
   useEffect(() => {
@@ -138,11 +141,12 @@ export default function Home() {
       }
     } catch (error) {
       console.error(`Error processing ${side} file:`, error);
-      alert(`Failed to process ${side} file. Please check if it's a valid profile JSON.`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showError(`Failed to process ${side} file: ${errorMessage}. Please check if it's a valid profile JSON.`, 'error');
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [showError]);
 
   const handleFilesProcessed = useCallback((files: ProcessedFile[]) => {
     console.log('Files processed:', files);
@@ -175,16 +179,22 @@ export default function Home() {
     setSelectedRightQueryId(queryId);
   }, []);
 
-  // Get the count of unique query IDs (folder names)
-  const getFolderCount = useCallback(() => {
-    return queryGroups.length;
+  // Get the count of unique query IDs (folder names) - memoized
+  const folderCount = useMemo(() => queryGroups.length, [queryGroups]);
+
+  // Create a map for efficient file count lookup
+  const fileCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    queryGroups.forEach(group => {
+      map.set(group.queryId, group.files.length);
+    });
+    return map;
   }, [queryGroups]);
 
-  // Get the count of files in each folder
+  // Get the count of files in each folder - optimized with map lookup
   const getFileCountForFolder = useCallback((queryId: string) => {
-    const group = queryGroups.find(g => g.queryId === queryId);
-    return group ? group.files.length : 0;
-  }, [queryGroups]);
+    return fileCountMap.get(queryId) || 0;
+  }, [fileCountMap]);
 
   return (
     <div className="min-h-screen p-4 md:p-8 bg-gray-50">
@@ -211,7 +221,7 @@ export default function Home() {
             />
             {allFiles.length > 0 && (
               <div className="mt-4 text-sm text-gray-600">
-                <p>{getFolderCount()} folders uploaded with {allFiles.length} total files</p>
+                <p>{folderCount} folders uploaded with {allFiles.length} total files</p>
               </div>
             )}
           </div>
@@ -457,28 +467,30 @@ export default function Home() {
 
         {/* Display query phase validation if selected */}
         {selectedSection === 'queryPhaseValidation' && leftData && rightData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-            {leftData.queryPhaseValidation && (
-              <QueryPhaseValidation 
-                validation={leftData.queryPhaseValidation} 
-                title="Source"
-              />
-            )}
-            {rightData.queryPhaseValidation && (
-              <QueryPhaseValidation 
-                validation={rightData.queryPhaseValidation} 
-                title="Target"
-              />
-            )}
-            {(!leftData.queryPhaseValidation || !rightData.queryPhaseValidation) && (
-              <div className="col-span-2 text-center p-8 bg-yellow-50 rounded-lg">
-                <p className="text-yellow-800">
-                  Query phase validation data is not available for one or both profiles.
-                  This may indicate an issue with the profile data or the validation process.
-                </p>
-              </div>
-            )}
-          </div>
+          <ErrorBoundary>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+              {leftData.queryPhaseValidation && (
+                <QueryPhaseValidation 
+                  validation={leftData.queryPhaseValidation} 
+                  title="Source"
+                />
+              )}
+              {rightData.queryPhaseValidation && (
+                <QueryPhaseValidation 
+                  validation={rightData.queryPhaseValidation} 
+                  title="Target"
+                />
+              )}
+              {(!leftData.queryPhaseValidation || !rightData.queryPhaseValidation) && (
+                <div className="col-span-2 text-center p-8 bg-yellow-50 rounded-lg">
+                  <p className="text-yellow-800">
+                    Query phase validation data is not available for one or both profiles.
+                    This may indicate an issue with the profile data or the validation process.
+                  </p>
+                </div>
+              )}
+            </div>
+          </ErrorBoundary>
         )}
 
         {/* Toggle Word Diff Button */}
@@ -496,14 +508,16 @@ export default function Home() {
             <p className="text-lg">Processing files...</p>
           </div>
         ) : (
-          <div className="text-base">
-            <DiffViewer
-              leftData={leftData}
-              rightData={rightData}
-              selectedSection={selectedSection}
-              showWordDiff={showWordDiff}
-            />
-          </div>
+          <ErrorBoundary>
+            <div className="text-base">
+              <DiffViewer
+                leftData={leftData}
+                rightData={rightData}
+                selectedSection={selectedSection}
+                showWordDiff={showWordDiff}
+              />
+            </div>
+          </ErrorBoundary>
         )}
       </div>
     </div>

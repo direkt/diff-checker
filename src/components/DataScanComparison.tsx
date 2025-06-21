@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ProfileData } from '@/utils/jqUtils';
+import { ViewMode } from './diff/ViewModeToggle';
 
 interface DataScan {
   profileId: string;
@@ -17,7 +18,7 @@ interface DataScan {
 interface DataScanComparisonProps {
   leftData: ProfileData | null;
   rightData: ProfileData | null;
-  viewMode?: 'split' | 'source-only' | 'target-only';
+  viewMode?: ViewMode;
 }
 
 const DataScanComparison: React.FC<DataScanComparisonProps> = ({ leftData, rightData, viewMode: parentViewMode = 'split' }) => {
