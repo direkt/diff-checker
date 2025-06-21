@@ -2,6 +2,38 @@
 // This utility validates that the query phases extracted from Dremio profiles are correct
 // and provides comprehensive phase analysis
 
+interface ProfileDataInput {
+  planPhases?: Array<{
+    phaseName?: string;
+    durationMillis?: number;
+    plan?: string;
+    timeBreakdownPerRule?: Record<string, number>;
+    rulesBreakdownStats?: Array<{
+      rule: string;
+      totalTimeMs: number;
+      matchedCount: number;
+      transformedCount: number;
+      relnodesCount: number;
+    }>;
+    sizeStats?: {
+      sizePerNode: number;
+      fragments: Array<{
+        majorId: number;
+        majorPortionSize: number;
+        minorPortionSize: number;
+      }>;
+      minorSpecificAttrs: Array<{
+        name: string;
+        size: number;
+      }>;
+      sharedAttrs: Array<{
+        name: string;
+        size: number;
+      }>;
+    };
+  }>;
+}
+
 export interface QueryPhase {
   phaseName: string;
   durationMillis: number;
@@ -150,7 +182,7 @@ export const PHASE_CATEGORIES = {
   ]
 } as const;
 
-export function validateQueryPhases(profileData: any): QueryPhaseValidationResult {
+export function validateQueryPhases(profileData: ProfileDataInput): QueryPhaseValidationResult {
   const result: QueryPhaseValidationResult = {
     isValid: true,
     totalPhases: 0,
@@ -177,7 +209,7 @@ export function validateQueryPhases(profileData: any): QueryPhaseValidationResul
     }
 
     result.totalPhases = planPhases.length;
-    result.totalPlanningTime = planPhases.reduce((sum: number, phase: any) => 
+    result.totalPlanningTime = planPhases.reduce((sum: number, phase) => 
       sum + (phase.durationMillis || 0), 0);
 
     // Process each phase
@@ -194,21 +226,21 @@ export function validateQueryPhases(profileData: any): QueryPhaseValidationResul
       result.phases.push(processedPhase);
 
       // Categorize phases
-      if (PHASE_CATEGORIES.PLANNING.includes(processedPhase.phaseName as any)) {
+      if ((PHASE_CATEGORIES.PLANNING as readonly string[]).includes(processedPhase.phaseName)) {
         result.phaseBreakdown.planningPhases.push(processedPhase);
       }
-      if (PHASE_CATEGORIES.EXECUTION.includes(processedPhase.phaseName as any)) {
+      if ((PHASE_CATEGORIES.EXECUTION as readonly string[]).includes(processedPhase.phaseName)) {
         result.phaseBreakdown.executionPhases.push(processedPhase);
       }
-      if (PHASE_CATEGORIES.OPTIMIZATION.includes(processedPhase.phaseName as any)) {
+      if ((PHASE_CATEGORIES.OPTIMIZATION as readonly string[]).includes(processedPhase.phaseName)) {
         result.phaseBreakdown.optimizationPhases.push(processedPhase);
       }
-      if (PHASE_CATEGORIES.RESOURCE.includes(processedPhase.phaseName as any)) {
+      if ((PHASE_CATEGORIES.RESOURCE as readonly string[]).includes(processedPhase.phaseName)) {
         result.phaseBreakdown.resourcePhases.push(processedPhase);
       }
 
       // Validate phase name
-      const isKnownPhase = KNOWN_DREMIO_PHASES.includes(processedPhase.phaseName as any) ||
+      const isKnownPhase = (KNOWN_DREMIO_PHASES as readonly string[]).includes(processedPhase.phaseName) ||
                           processedPhase.phaseName.startsWith('Average Catalog Access for') ||
                           processedPhase.phaseName.includes('CompositeFilterPushdown') ||
                           processedPhase.phaseName.includes('eliminate_empty_scans');
@@ -338,7 +370,7 @@ export function getPhaseAnalysis(phases: QueryPhase[]): {
   
   for (const [category, categoryPhases] of Object.entries(PHASE_CATEGORIES)) {
     const categoryTime = phases
-      .filter(p => categoryPhases.includes(p.phaseName as any))
+      .filter(p => (categoryPhases as readonly string[]).includes(p.phaseName))
       .reduce((sum, p) => sum + p.durationMillis, 0);
     
     if (categoryTime > 0) {

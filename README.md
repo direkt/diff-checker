@@ -16,6 +16,7 @@ A Next.js application for comparing and analyzing Dremio query profile JSON file
 - **Word-level diff highlighting** for precise change detection
 - **Folder-based uploads** for batch processing
 - **Interactive filtering** and search capabilities
+- **Section Reordering & Pinning** - Reorder comparison sections and pin favorites to keep them visible while scrolling
 
 ## New: Expandable Columns Feature
 
