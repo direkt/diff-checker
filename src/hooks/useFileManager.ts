@@ -62,8 +62,26 @@ export function useFileManager() {
   // Memoized function to find profile file
   const findProfileFile = useCallback((files: ProcessedFile[]): ProcessedFile | null => {
     if (files.length === 0) return null;
+    
+    // Priority order for profile files
+    const priorities = [
+      'profile_attempt_0.json',
+      'profile.json', 
+      'profile_attempt_1.json',
+      'prepare_profile_attempt_0.json'
+    ];
+    
+    // Find by exact filename priority first
+    for (const priority of priorities) {
+      const found = files.find(file => file.name.endsWith(priority));
+      if (found) {
+        console.log(`Found priority profile file: ${found.name}`);
+        return found;
+      }
+    }
+    
+    // Fallback to any file containing 'profile'
     return files.find(file => 
-      file.name.endsWith('profile.json') || 
       file.name.toLowerCase().includes('profile')
     ) || files[0];
   }, []);

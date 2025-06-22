@@ -10,20 +10,26 @@ const SectionSelector: React.FC<SectionSelectorProps> = ({
   onSectionChange 
 }) => {
   // Memoized section options for better performance
-  const sectionOptions = useMemo(() => [
-    { value: "plan", label: "Query Plan" },
-    { value: "pdsDatasetPaths", label: "PDS Dataset Paths" },
-    { value: "vdsDatasetPaths", label: "VDS Dataset Paths" },
-    { value: "vdsDetails", label: "VDS Details with SQL" },
-    { value: "planOperators", label: "Plan Operators" },
-    { value: "reflections", label: "Reflections" },
-    { value: "dataScans", label: "Data Scans" },
-    { value: "performanceAnalysis", label: "Query Performance Analysis" },
-    { value: "queryPhaseValidation", label: "Query Phase Validation" }
-  ], []);
+  const sectionOptions = useMemo(() => {
+    const options = [
+      { value: "plan", label: "Query Plan" },
+      { value: "visualizations", label: "📊 Advanced Visualizations" },
+      { value: "pdsDatasetPaths", label: "PDS Dataset Paths" },
+      { value: "vdsDatasetPaths", label: "VDS Dataset Paths" },
+      { value: "vdsDetails", label: "VDS Details with SQL" },
+      { value: "planOperators", label: "Plan Operators" },
+      { value: "reflections", label: "Reflections" },
+      { value: "dataScans", label: "Data Scans" },
+      { value: "performanceAnalysis", label: "Query Performance Analysis" },
+      { value: "queryPhaseValidation", label: "Query Phase Validation" }
+    ];
+    console.log('SectionSelector options:', options);
+    return options;
+  }, []);
 
   // Memoized section change handler
   const handleSectionChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    console.log('Section changed to:', e.target.value);
     onSectionChange(e.target.value);
   }, [onSectionChange]);
 

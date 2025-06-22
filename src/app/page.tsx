@@ -11,6 +11,7 @@ import ReflectionDisplay from "@/components/ReflectionDisplay";
 import FileUploadSection from "@/components/FileUploadSection";
 import QueryPhaseSection from "@/components/QueryPhaseSection";
 import WordDiffToggle from "@/components/WordDiffToggle";
+import VisualizationContainer from "@/components/visualizations/VisualizationContainer";
 import { useFileManager } from "@/hooks/useFileManager";
 import { useQuerySelection } from "@/hooks/useQuerySelection";
 import { useProfileProcessing } from "@/hooks/useProfileProcessing";
@@ -34,8 +35,9 @@ export default function Home() {
 
   // UI handlers
   const handleSectionChange = useCallback((section: string) => {
+    console.log('Main page: section changing from', selectedSection, 'to', section);
     setSelectedSection(section);
-  }, []);
+  }, [selectedSection]);
 
   const toggleOptionsOpen = useCallback(() => {
     setOptionsOpen(prev => !prev);
@@ -101,17 +103,35 @@ export default function Home() {
           <QueryPhaseSection leftData={leftData} rightData={rightData} />
         )}
 
+        {/* Display advanced visualizations if selected */}
+        {selectedSection === 'visualizations' && (
+          <div>
+            <div className="bg-purple-100 p-4 rounded mb-4">
+              <p className="text-purple-800 font-bold">📊 Visualization Section Active!</p>
+              <p className="text-purple-700">Selected Section: {selectedSection}</p>
+              <p className="text-purple-700">Data Available: Left={!!leftData}, Right={!!rightData}</p>
+            </div>
+            <VisualizationContainer 
+              leftData={leftData} 
+              rightData={rightData} 
+              viewMode="split"
+            />
+          </div>
+        )}
+
         {/* Toggle Word Diff Button */}
-        <WordDiffToggle 
-          showWordDiff={showWordDiff}
-          onToggle={() => setShowWordDiff((prev) => !prev)}
-        />
+        {selectedSection !== 'visualizations' && (
+          <WordDiffToggle 
+            showWordDiff={showWordDiff}
+            onToggle={() => setShowWordDiff((prev) => !prev)}
+          />
+        )}
 
         {isProcessing ? (
           <div className="text-center p-8">
             <p className="text-lg">Processing files...</p>
           </div>
-        ) : (
+        ) : selectedSection !== 'visualizations' ? (
           <ErrorBoundary>
             <div className="text-base">
               <DiffViewer
@@ -122,7 +142,7 @@ export default function Home() {
               />
             </div>
           </ErrorBoundary>
-        )}
+        ) : null}
       </div>
     </div>
   );

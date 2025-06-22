@@ -1,0 +1,102 @@
+/* Timeline Visualization Styles */
+.timeline-container {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.timeline-phase-normal {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.timeline-phase-moderate {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-phase-slow {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  animation: pulse 2s infinite;
+}
+
+.timeline-operator {
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Custom vis-timeline overrides */
+.vis-timeline {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.vis-panel.vis-background {
+  background-color: #f9fafb;
+}
+
+.vis-panel.vis-top {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.vis-labelset .vis-label {
+  color: #374151;
+  font-weight: 500;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.vis-time-axis .vis-text {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.vis-item {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.vis-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.vis-item.vis-selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Flame graph styles */
+.flame-graph-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.flame-graph-tooltip {
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  pointer-events: none;
+  white-space: pre-line;
+  max-width: 300px;
+  z-index: 1000;
+}
