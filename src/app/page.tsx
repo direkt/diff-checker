@@ -14,7 +14,6 @@ import WordDiffToggle from "@/components/WordDiffToggle";
 import { useFileManager } from "@/hooks/useFileManager";
 import { useQuerySelection } from "@/hooks/useQuerySelection";
 import { useProfileProcessing } from "@/hooks/useProfileProcessing";
-import { useErrorHandling } from "@/hooks/useErrorHandling";
 
 export default function Home() {
   // Custom hooks for state management

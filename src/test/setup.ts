@@ -26,15 +26,15 @@ global.fetch = vi.fn()
 Object.defineProperty(global, 'FileReader', {
   value: class MockFileReader {
     readAsText = vi.fn()
-    onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
-    onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
+    onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null = null
+    onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null = null
     result: string | ArrayBuffer | null = null
     
     constructor() {
       setTimeout(() => {
         this.result = '{"test": "data"}'
         if (this.onload) {
-          this.onload({} as ProgressEvent<FileReader>)
+          this.onload.call(this, {} as ProgressEvent<FileReader>)
         }
       }, 0)
     }

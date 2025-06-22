@@ -5,15 +5,13 @@ const nextConfig: NextConfig = {
   experimental: {
     // Enable optimized package imports
     optimizePackageImports: ['lucide-react', 'react-syntax-highlighter', 'recharts'],
-    
-    // Turbopack configuration
-    turbo: {
-      // Exclude large directories from file watching and compilation
-      resolveAlias: {
-        // Add any necessary aliases here
-      },
-      // Configure module resolution for better performance
-      moduleIdStrategy: 'deterministic',
+  },
+  
+  // Turbopack configuration (moved from experimental as it's now stable)
+  turbopack: {
+    // Exclude large directories from file watching and compilation
+    resolveAlias: {
+      // Add any necessary aliases here
     },
   },
 

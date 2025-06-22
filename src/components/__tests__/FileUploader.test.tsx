@@ -22,7 +22,7 @@ vi.mock('@/utils/validation', () => ({
 }))
 
 const mockOnFilesProcessed = vi.fn()
-const mockUseDropzone = useDropzone as any
+const mockUseDropzone = useDropzone as unknown as vi.MockedFunction<typeof useDropzone>
 
 describe('FileUploader', () => {
   beforeEach(() => {

@@ -1,8 +1,9 @@
 import React from 'react';
 import FileUploader from '@/components/FileUploader';
+import { ProcessedFile } from '@/hooks/useFileManager';
 
 interface FileUploadSectionProps {
-  onFilesProcessed: (files: any[]) => void;
+  onFilesProcessed: (files: ProcessedFile[]) => void;
   fileCount: number;
   folderCount: number;
 }
