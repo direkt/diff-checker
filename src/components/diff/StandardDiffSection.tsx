@@ -1,9 +1,9 @@
 import React, { ReactElement } from 'react';
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued';
-import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { ViewMode } from './ViewModeToggle';
 import { ProfileData } from '@/utils/jqUtils';
+import { sanitizeSqlContent, sanitizeString, sanitizeQueryPlan, isSuspiciousContent } from '@/utils/sanitization';
+import SafeSyntaxHighlighter from '@/components/SafeSyntaxHighlighter';
 
 interface StandardDiffSectionProps {
   leftData: ProfileData;
@@ -23,20 +23,30 @@ const StandardDiffSection: React.FC<StandardDiffSectionProps> = ({
   customStyles 
 }) => {
   const getContentForSection = (data: ProfileData, section: string): string => {
+    let content = '';
+    
     switch (section) {
       case 'plan':
-        return data.plan || '';
+        content = data.plan || '';
+        return sanitizeQueryPlan(content);
       case 'pdsDatasetPaths':
-        return data.pdsDatasetPaths.join('\n') || '';
+        content = data.pdsDatasetPaths.join('\n') || '';
+        return sanitizeString(content);
       case 'vdsDatasetPaths':
-        return data.vdsDatasetPaths.join('\n') || '';
+        content = data.vdsDatasetPaths.join('\n') || '';
+        return sanitizeString(content);
       case 'vdsDetails':
-        return data.vdsDetails.map(vds => `-- VDS path: ${vds.path}\n${vds.sql}`).join('\n\n') || '';
+        content = data.vdsDetails.map(vds => `-- VDS path: ${sanitizeString(vds.path)}\n${sanitizeSqlContent(vds.sql)}`).join('\n\n') || '';
+        return content;
       case 'planOperators':
-        return data.planOperators || '';
+        content = data.planOperators || '';
+        // Plan operators are pre-processed and safe, only apply minimal sanitization
+        return content.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                     .replace(/javascript:/gi, '')
+                     .replace(/vbscript:/gi, '');
       case 'reflections':
-        const chosenReflections = data.reflections?.chosen?.map(r => `[Chosen] ${r}`) || [];
-        const consideredReflections = data.reflections?.considered?.map(r => `[Considered] ${r}`) || [];
+        const chosenReflections = data.reflections?.chosen?.map(r => `[Chosen] ${sanitizeString(r)}`) || [];
+        const consideredReflections = data.reflections?.considered?.map(r => `[Considered] ${sanitizeString(r)}`) || [];
         
         if (chosenReflections.length === 0 && consideredReflections.length === 0) {
           return 'No reflection data available';
@@ -90,13 +100,24 @@ const StandardDiffSection: React.FC<StandardDiffSectionProps> = ({
             compareMethod={DiffMethod.WORDS}
             renderContent={(str: string): ReactElement => {
               if (selectedSection === 'vdsDetails') {
+                // Additional security check before rendering
+                if (isSuspiciousContent(str)) {
+                  console.warn('Suspicious content detected, rendering as plain text');
+                  return <span style={{color: 'red'}}>Content blocked for security reasons</span>;
+                }
+                
                 return (
-                  <SyntaxHighlighter language="sql" style={docco} customStyle={{fontSize: '1rem'}}>
+                  <SafeSyntaxHighlighter 
+                    language="sql" 
+                    customStyle={{fontSize: '1rem'}}
+                  >
                     {str}
-                  </SyntaxHighlighter>
+                  </SafeSyntaxHighlighter>
                 );
               }
-              return <span>{str}</span>;
+              // Sanitize all other content too
+              const sanitizedStr = sanitizeString(str);
+              return <span>{sanitizedStr}</span>;
             }}
           />
         </div>

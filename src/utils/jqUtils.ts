@@ -8,6 +8,7 @@ import {
   validateScanData,
   validatePhaseData
 } from './typeGuards';
+import { sanitizeString, sanitizeSqlContent, sanitizeQueryPlan, isSuspiciousContent, isSuspiciousQueryPlan } from './sanitization';
 import { 
   PERFORMANCE_THRESHOLDS, 
   OPERATOR_TYPE_MAP, 
@@ -168,12 +169,25 @@ function processDatasetProfiles(datasetProfile: unknown): {
   try {
     const result = datasetProfile.reduce((acc, profile: DatasetProfile) => {
       if (profile.type === 1) {
-        acc.pds.push(profile.datasetPath);
+        const sanitizedPath = sanitizeString(profile.datasetPath);
+        acc.pds.push(sanitizedPath);
       } else if (profile.type === 2) {
-        acc.vds.push(profile.datasetPath);
+        const sanitizedPath = sanitizeString(profile.datasetPath);
+        const rawSql = safeString(profile.sql);
+        
+        // Check for suspicious SQL content
+        let sanitizedSql = '';
+        if (isSuspiciousContent(rawSql)) {
+          console.warn('Suspicious SQL content detected in VDS, blocking content');
+          sanitizedSql = '-- SQL content blocked for security reasons --';
+        } else {
+          sanitizedSql = sanitizeSqlContent(rawSql);
+        }
+        
+        acc.vds.push(sanitizedPath);
         acc.vdsDetails.push({
-          path: profile.datasetPath,
-          sql: profile.sql || ''
+          path: sanitizedPath,
+          sql: sanitizedSql
         });
       }
       return acc;
@@ -377,11 +391,26 @@ export async function extractProfileData(jsonContent: string): Promise<ProfileDa
       version = parsedJson.clusterInfo.version.version;
     }
     
-    // Extract query
-    const query = parsedJson.query || '';
+    // Extract and sanitize query
+    let query = safeString(parsedJson.query);
+    if (isSuspiciousContent(query)) {
+      console.warn('Suspicious content detected in query field');
+      query = 'Query content blocked for security reasons';
+    } else {
+      query = sanitizeSqlContent(query);
+    }
     
-    // Extract plan and clean it
-    let plan = parsedJson.plan || '';
+    // Extract plan - use specialized check for query plans
+    let plan = safeString(parsedJson.plan);
+    if (isSuspiciousQueryPlan(plan)) {
+      console.warn('Malicious content detected in plan field');
+      plan = 'Plan content blocked for security reasons';
+    } else {
+      // Only apply minimal sanitization to preserve plan structure
+      plan = plan.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/javascript:\s*(?:alert|confirm|prompt|eval)/gi, '')
+                .replace(/vbscript:\s*(?:msgbox|eval)/gi, '');
+    }
     
     // Keep the plan as is without removing any information
     if (plan) {

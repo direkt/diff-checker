@@ -6473,7 +6473,7 @@ snapshots:
 
   react-syntax-highlighter@15.6.1(react@19.0.0):
     dependencies:
-      '@babel/runtime': 7.26.10
+      '@babel/runtime': 7.27.6
       highlight.js: 10.7.3
       highlightjs-vue: 1.0.0
       lowlight: 1.20.0
